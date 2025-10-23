@@ -88,8 +88,8 @@ Git
 
 ```bash
 # Clone the repository
-git clone https://github.com/blocksmiths/launcher-public.git
-cd launcher-public
+git clone https://github.com/BlocksmithsLauncher/launcher.git
+cd launcher
 
 # Install dependencies
 npm install
@@ -396,9 +396,9 @@ See [LICENSE](./LICENSE) for full terms.
 | Platform | Link |
 |----------|------|
 | 🌐 Website | [blocksmithslauncher.com](https://blocksmithslauncher.com) |
-| 💬 Discord | [discord.gg/blocksmiths](https://discord.gg/blocksmiths) |
+| 💬 Discord | [Join Discord Server](https://discord.gg/Aed2tcWNhU) |
 | 📧 Email | support@blocksmithslauncher.com |
-| 🐛 Issues | [GitHub Issues](https://github.com/blocksmiths/launcher-public/issues) |
+| 🐛 Issues | [GitHub Issues](https://github.com/BlocksmithsLauncher/launcher/issues) |
 
 </div>
 

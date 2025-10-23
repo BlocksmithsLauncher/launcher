@@ -88,8 +88,8 @@ Git
 
 ```bash
 # Repository'yi klonlayın
-git clone https://github.com/blocksmiths/launcher-public.git
-cd launcher-public
+git clone https://github.com/BlocksmithsLauncher/launcher.git
+cd launcher
 
 # Bağımlılıkları yükleyin
 npm install
@@ -396,9 +396,9 @@ Tam şartlar için [LICENSE](./LICENSE) dosyasına bakın.
 | Platform | Bağlantı |
 |----------|----------|
 | 🌐 Website | [blocksmithslauncher.com](https://blocksmithslauncher.com) |
-| 💬 Discord | [discord.gg/blocksmiths](https://discord.gg/blocksmiths) |
+| 💬 Discord | [Discord Sunucusuna Katıl](https://discord.gg/Aed2tcWNhU) |
 | 📧 Email | support@blocksmithslauncher.com |
-| 🐛 Sorunlar | [GitHub Issues](https://github.com/blocksmiths/launcher-public/issues) |
+| 🐛 Sorunlar | [GitHub Issues](https://github.com/BlocksmithsLauncher/launcher/issues) |
 
 </div>
 
