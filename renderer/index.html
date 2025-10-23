@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blocksmiths Launcher</title>
+    <link rel="stylesheet" href="../assets/styles/main.css">
+    <link rel="stylesheet" href="../assets/styles/launcher-ui.css">
+    <link rel="stylesheet" href="../assets/styles/recently-played.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <img src="../assets/white-logo-wide.png" alt="Blocksmiths">
+                </div>
+                <nav class="main-nav">
+                    <button class="nav-item active" data-page="home">
+                        <i class="fas fa-home"></i>
+                        <span>Ana Sayfa</span>
+                    </button>
+                    <button class="nav-item" data-page="modpacks">
+                        <i class="fas fa-box"></i>
+                        <span>Mod Paketleri</span>
+                    </button>
+                    <button class="nav-item" data-page="library">
+                        <i class="fas fa-book-open"></i>
+                        <span>Kütüphane</span>
+                    </button>
+                    <button class="nav-item" data-page="servers">
+                        <i class="fas fa-server"></i>
+                        <span>Sunucular</span>
+                    </button>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="window-controls">
+                    <button class="control-btn minimize" onclick="minimizeWindow()">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button class="control-btn maximize" onclick="maximizeWindow()">
+                        <i class="fas fa-square"></i>
+                    </button>
+                    <button class="control-btn close" onclick="closeWindow()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <!-- Profile Section -->
+                <div class="sidebar-section profile-section">
+                    <div class="current-profile">
+                        <div class="profile-avatar" id="sidebarProfileAvatar">
+                            <img src="https://mc-heads.net/avatar/Steve/64" alt="Profile" id="sidebarProfileHead">
+                            <i class="fas fa-user" id="sidebarProfileIcon" style="display: none;"></i>
+                            <div class="profile-hover-btn" onclick="switchProfile()" title="Profil Değiştir">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                        </div>
+                        <div class="profile-details">
+                            <div class="profile-name" id="sidebarProfileName">Profil</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Hızlı Erişim</h3>
+                    <div class="quick-actions">
+                        <button class="quick-action" onclick="openGameDirectory()">
+                            <i class="fas fa-folder-open"></i>
+                            <span>Oyun Klasörü</span>
+                        </button>
+                        <button class="quick-action" onclick="openWebsite()">
+                            <i class="fas fa-globe"></i>
+                            <span>Web Sitesi</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings Section -->
+                <div class="sidebar-section">
+                    <button class="sidebar-settings-btn" onclick="switchPage('settings')" title="Ayarlar">
+                        <i class="fas fa-cog"></i>
+                        <span>Ayarlar</span>
+                    </button>
+                </div>
+
+                <!-- Recent Modpacks Section -->
+                <div class="sidebar-section recent-modpacks-section">
+                    <h3>Son Oynanan</h3>
+                    <div class="recent-modpacks" id="recentModpacksList">
+                        <!-- Recent modpacks will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Spacer to push downloads to bottom -->
+                <div class="sidebar-spacer"></div>
+                
+                <!-- Download Progress Box -->
+                <div class="sidebar-section download-progress-section" id="downloadProgressSection" style="display: none;">
+                    <h3><i class="fas fa-download"></i> İndirmeler</h3>
+                    <div class="download-queue" id="downloadQueue">
+                        <!-- Active downloads will be added here -->
+                    </div>
+                </div>
+                
+                <!-- Version Info -->
+                <div class="sidebar-section version-info">
+                    <div class="version-badge">
+                        <span class="beta-tag">BETA</span>
+                        <span class="version-text" id="launcherVersion">v0.0.0</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Home Page -->
+                <div class="page active" id="homePage">
+                    <div class="hero-section">
+                        <div class="hero-content">
+                            <h1>Minecraft Dünyasına Hoş Geldiniz!</h1>
+                            <p>Blocksmiths Launcher ile en iyi Minecraft deneyimini yaşayın</p>
+                            <div class="play-section">
+                    <div class="game-controls">
+                        <button class="play-button" id="playButton">
+                            <i class="fas fa-play"></i>
+                            <span>OYNA</span>
+                        </button>
+                        <button class="stop-button" id="stopButton" style="display: none;">
+                            <i class="fas fa-stop"></i>
+                            <span>DURDUR</span>
+                        </button>
+                    </div>
+                                <div class="version-selector">
+                                    <select id="versionSelect">
+                                        <option value="1.20.4">Minecraft 1.20.4</option>
+                                        <option value="1.19.4">Minecraft 1.19.4</option>
+                                        <option value="1.18.2">Minecraft 1.18.2</option>
+                                        <option value="1.16.5">Minecraft 1.16.5</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="launch-progress" id="launchProgress" style="display: none;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill"></div>
+                                </div>
+                                <div class="progress-text">Oyun başlatılıyor...</div>
+                            </div>
+                        </div>
+                        <div class="hero-image">
+                            <img src="../assets/images/minecraft-hero.jpg" alt="Minecraft" onerror="this.style.display='none'">
+                        </div>
+                    </div>
+
+                    <!-- Recently Played Modpacks Section -->
+                    <div class="recently-played-section">
+                        <div class="section-header">
+                            <h2><i class="bi bi-clock-history"></i> Son Oynadığın Modpackler</h2>
+                            <p>En son oynadığın modpacklere hızlıca dön</p>
+                        </div>
+                        
+                        <div class="recent-modpacks-grid" id="recentModpacksGrid">
+                            <!-- Dynamically populated by loadRecentlyPlayedModpacks() -->
+                            <div class="creator-card" data-creator="algomi" style="display:none;">
+                                <div class="creator-header">
+                                    <div class="creator-avatar">
+                                        <img src="https://mc-heads.net/avatar/Algomi/64" alt="Algomi" onerror="this.src='../assets/images/default-avatar.png'">
+                                        <div class="creator-status online"></div>
+                                    </div>
+                                    <div class="creator-info">
+                                        <h3>Algomi</h3>
+                                        <p class="creator-title">Minecraft İçerik Üreticisi</p>
+                                        <div class="creator-stats">
+                                            <span><i class="fas fa-cube"></i> 5 Modpack</span>
+                                            <span><i class="fas fa-download"></i> 12.3K İndirme</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="creator-modpacks">
+                                    <div class="modpack-preview">
+                                        <div class="modpack-item" onclick="installCreatorModpack('algomi', 'survival-plus')">
+                                            <div class="modpack-icon survival-icon">
+                                                <i class="fas fa-tree"></i>
+                                            </div>
+                                            <span>Survival Plus</span>
+                                        </div>
+                                        <div class="modpack-item" onclick="installCreatorModpack('algomi', 'tech-adventure')">
+                                            <div class="modpack-icon tech-icon">
+                                                <i class="fas fa-cog"></i>
+                                            </div>
+                                            <span>Tech Adventure</span>
+                                        </div>
+                                        <div class="modpack-item" onclick="installCreatorModpack('algomi', 'magic-world')">
+                                            <div class="modpack-icon magic-icon">
+                                                <i class="fas fa-magic"></i>
+                                            </div>
+                                            <span>Magic World</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="creator-actions">
+                                    <button class="btn-primary" onclick="showCreatorModpacks('algomi')">
+                                        <i class="fas fa-eye"></i>
+                                        Tüm Modpackleri Gör
+                                    </button>
+                                    <button class="btn-secondary" onclick="openCreatorProfile('algomi')">
+                                        <i class="fas fa-user"></i>
+                                        Profil
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Tenticra Creator Card -->
+                            <div class="creator-card" data-creator="tenticra" style="display:none;">
+                                <div class="creator-header">
+                                    <div class="creator-avatar">
+                                        <img src="https://mc-heads.net/avatar/Tenticra/64" alt="Tenticra" onerror="this.src='../assets/images/default-avatar.png'">
+                                        <div class="creator-status online"></div>
+                                    </div>
+                                    <div class="creator-info">
+                                        <h3>Tenticra</h3>
+                                        <p class="creator-title">Modpack Uzmanı</p>
+                                        <div class="creator-stats">
+                                            <span><i class="fas fa-cube"></i> 7 Modpack</span>
+                                            <span><i class="fas fa-download"></i> 18.7K İndirme</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="creator-modpacks">
+                                    <div class="modpack-preview">
+                                        <div class="modpack-item" onclick="installCreatorModpack('tenticra', 'ultimate-quest')">
+                                            <div class="modpack-icon quest-icon">
+                                                <i class="fas fa-compass"></i>
+                                            </div>
+                                            <span>Ultimate Quest</span>
+                                        </div>
+                                        <div class="modpack-item" onclick="installCreatorModpack('tenticra', 'industrial-craft')">
+                                            <div class="modpack-icon industrial-icon">
+                                                <i class="fas fa-industry"></i>
+                                            </div>
+                                            <span>Industrial Craft</span>
+                                        </div>
+                                        <div class="modpack-item" onclick="installCreatorModpack('tenticra', 'skyblock-extreme')">
+                                            <div class="modpack-icon skyblock-icon">
+                                                <i class="fas fa-cloud"></i>
+                                            </div>
+                                            <span>Skyblock Extreme</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="creator-actions">
+                                    <button class="btn-primary" onclick="showCreatorModpacks('tenticra')">
+                                        <i class="fas fa-eye"></i>
+                                        Tüm Modpackleri Gör
+                                    </button>
+                                    <button class="btn-secondary" onclick="openCreatorProfile('tenticra')">
+                                        <i class="fas fa-user"></i>
+                                        Profil
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Featured Modpacks removed from home; will appear under Mod Paketleri as özel rozet -->
+
+                </div>
+
+                <!-- Mods Page -->
+                <div class="page" id="modsPage">
+                    <div class="page-header">
+                        <h1>Mod Yönetimi</h1>
+                        <div class="page-actions">
+                            <button class="btn-primary" onclick="installMod()">
+                                <i class="fas fa-plus"></i>
+                                Mod Ekle
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mods-content">
+                        <div class="mods-categories">
+                            <button class="category-btn active" data-category="all">Tümü</button>
+                            <button class="category-btn" data-category="installed">Yüklü</button>
+                            <button class="category-btn" data-category="available">Mevcut</button>
+                            <button class="category-btn" data-category="modpacks">Modpackler</button>
+                        </div>
+                        
+                        <div class="mods-grid" id="modsGrid">
+                            <!-- Modlar buraya yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modpacks Page -->
+                <div class="page" id="modpacksPage">
+                    <div class="page-header">
+                        <h1>Mod Paketleri</h1>
+                        <div class="page-actions">
+                            <button class="btn-secondary" id="importMrpackBtn">
+                                <i class="fas fa-upload"></i>
+                                .mrpack Yükle
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Search and Filter Section -->
+                    <div class="modpacks-search-section">
+                        <div class="search-container">
+                            <div class="search-input-wrapper">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="modpackSearchInput" placeholder="Modpack ara... (örn: 'fabric', 'survival', 'tech')" />
+                                <button class="clear-search-btn" id="clearSearchBtn" onclick="clearModpackSearch()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="filters-container">
+                            <div class="filter-group">
+                                <label>Kategori:</label>
+                                <select id="categoryFilter">
+                                    <option value="">Tümü</option>
+                                    <option value="adventure">Macera</option>
+                                    <option value="technology">Teknoloji</option>
+                                    <option value="magic">Büyü</option>
+                                    <option value="kitchen-sink">Kitchen Sink</option>
+                                    <option value="lightweight">Hafif</option>
+                                    <option value="multiplayer">Çok Oyunculu</option>
+                                    <option value="quests">Görevler</option>
+                                    <option value="decoration">Dekorasyon</option>
+                                    <option value="utility">Araç</option>
+                                    <option value="worldgen">Dünya Oluşturma</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Minecraft Sürümü:</label>
+                                <select id="versionFilter">
+                                    <option value="">Tümü</option>
+                                    <option value="1.20.4">1.20.4</option>
+                                    <option value="1.20.1">1.20.1</option>
+                                    <option value="1.19.4">1.19.4</option>
+                                    <option value="1.19.2">1.19.2</option>
+                                    <option value="1.18.2">1.18.2</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Mod Loader:</label>
+                                <select id="loaderFilter">
+                                    <option value="">Tümü</option>
+                                    <option value="fabric">Fabric</option>
+                                    <option value="forge">Forge</option>
+                                    <option value="quilt">Quilt</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Sıralama:</label>
+                                <select id="sortFilter">
+                                    <option value="relevance">İlgili</option>
+                                    <option value="downloads">İndirme Sayısı</option>
+                                    <option value="follows">Takipçi Sayısı</option>
+                                    <option value="newest">En Yeni</option>
+                                    <option value="updated">Son Güncelleme</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modpacks-content">
+                        <div class="modpacks-categories">
+                            <button class="category-btn active" data-category="popular">Popüler</button>
+                            <button class="category-btn" data-category="search">Ara</button>
+                            <button class="category-btn" data-category="featured">Öne Çıkan</button>
+                        </div>
+                        
+                        <div class="modpacks-results-info" id="modpacksResultsInfo">
+                            <!-- Search results info will appear here -->
+                        </div>
+                        
+                        <div class="modpacks-grid" id="modpacksGrid">
+                            <!-- Modpackler buraya yüklenecek -->
+                        </div>
+                        
+                        <div class="modpacks-loading" id="modpacksLoading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Modpackler yükleniyor...</span>
+                        </div>
+                        
+                        <div class="modpacks-load-more">
+                            <button class="btn-secondary" id="loadMoreBtn" onclick="loadMoreModpacks()" style="display: none;">
+                                <i class="fas fa-chevron-down"></i>
+                                Daha Fazla Yükle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Library Page -->
+                <div class="page" id="libraryPage">
+                    <div class="page-header">
+                        <h1>Kütüphane</h1>
+                        <div class="page-actions">
+                            <button class="btn-primary" onclick="refreshLibrary()">
+                                <i class="fas fa-sync"></i>
+                                Yenile
+                            </button>
+                            <button class="btn-secondary" onclick="importModpack()">
+                                <i class="fas fa-file-import"></i>
+                                Modpack İçe Aktar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="library-content">
+                        <div class="library-filters">
+                            <div class="filter-group">
+                                <label>Filtrele:</label>
+                                <select id="libraryFilter" onchange="filterLibrary()">
+                                    <option value="all">Tümü</option>
+                                    <option value="installed">Kurulu</option>
+                                    <option value="available">Güncellenebilir</option>
+                                    <option value="broken">Sorunlu</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Sırala:</label>
+                                <select id="librarySortBy" onchange="sortLibrary()">
+                                    <option value="name">İsme Göre</option>
+                                    <option value="lastPlayed">Son Oynanma</option>
+                                    <option value="dateAdded">Eklenme Tarihi</option>
+                                    <option value="size">Boyut</option>
+                                </select>
+                            </div>
+                            <div class="search-group">
+                                <input type="text" id="librarySearch" placeholder="Modpack ara..." oninput="searchLibrary()">
+                                <i class="fas fa-search"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="library-stats">
+                            <div class="stat-item">
+                                <span class="stat-number" id="totalModpacks">0</span>
+                                <span class="stat-label">Toplam Modpack</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="installedModpacks">0</span>
+                                <span class="stat-label">Kurulu</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="totalSize">0 MB</span>
+                                <span class="stat-label">Toplam Boyut</span>
+                            </div>
+                        </div>
+                        
+                        <div class="library-grid" id="libraryGrid">
+                            <!-- Modpackler buraya yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Servers Page -->
+                <div class="page" id="serversPage">
+                    <div class="page-header">
+                        <h1>Sunucular</h1>
+                        <div class="page-actions">
+                            <button class="btn-secondary" onclick="refreshServers()">
+                                <i class="fas fa-sync"></i>
+                                Yenile
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="servers-content">
+                        <div class="servers-featured" id="featuredServers">
+                            <!-- Öne çıkan sunucular -->
+                        </div>
+                        <div class="servers-grid" id="serversGrid">
+                            <!-- Tüm sunucular -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Page -->
+                <div class="page" id="settingsPage">
+                    <div class="page-header">
+                        <h1>Ayarlar</h1>
+                    </div>
+                    
+                    <div class="settings-content">
+                        <div class="settings-sections">
+                            <div class="settings-section">
+                                <h3>Oyun Ayarları</h3>
+                                <div class="setting-item">
+                                    <label for="memorySlider">RAM Kullanımı</label>
+                                    <div class="memory-slider">
+                                        <input type="range" id="memorySlider" min="1" max="16" value="2">
+                                        <span id="memoryValue">2 GB</span>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label for="gameDirectory">Oyun Dizini</label>
+                                    <div class="directory-input">
+                                        <input type="text" id="gameDirectory" readonly>
+                                        <button onclick="selectGameDirectory()">Seç</button>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label for="javaArgs">Java Argümanları</label>
+                                    <input type="text" id="javaArgs" placeholder="-Xmx2G -XX:+UnlockExperimentalVMOptions">
+                                </div>
+                            </div>
+                            
+                            <div class="settings-section">
+                                <h3>Görünüm</h3>
+                                <div class="setting-item">
+                                    <label for="language">Dil</label>
+                                    <select id="language">
+                                        <option value="tr">Türkçe</option>
+                                        <option value="en">English</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-section">
+                                <h3>Hesap</h3>
+                                <div class="setting-item">
+                                    <label>
+                                        <input type="checkbox" id="autoLogin">
+                                        Otomatik Giriş
+                                    </label>
+                                </div>
+                                <button class="btn-secondary" onclick="changeProfile()">
+                                    Profil Değiştir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+            <!-- Right Sidebar -->
+            <div class="right-sidebar">
+                <!-- Server List -->
+                <div class="server-list-widget">
+                    <h3><i class="fas fa-server"></i> Sunucular</h3>
+                    <div class="server-item blocksmiths-server">
+                        <div class="server-info">
+                            <div class="server-name">Blocksmiths Network</div>
+                            <div class="server-ip">mc.blocksmiths.net</div>
+                            <div class="server-status online">
+                                <i class="fas fa-circle"></i>
+                                <span>Online - 127 oyuncu</span>
+                            </div>
+                        </div>
+                        <div class="server-actions">
+                            <button class="copy-ip-btn" onclick="copyServerIP('mc.blocksmiths.net')" title="IP Kopyala">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="join-server-btn" onclick="joinServer('mc.blocksmiths.net')" title="Sunucuya Katıl">
+                                <i class="fas fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="sidebarServerA"></div>
+                    <div id="sidebarServerB"></div>
+                </div>
+                
+                <!-- AdMob Banners -->
+                <div class="admob-banner" id="admob-banner-1">
+                    <div class="ad-placeholder">
+                        <i class="fas fa-ad"></i>
+                        <span>Reklam Alanı 1</span>
+                        <small>300x250</small>
+                    </div>
+                </div>
+                
+                <div class="admob-banner" id="admob-banner-2">
+                    <div class="ad-placeholder">
+                        <i class="fas fa-ad"></i>
+                        <span>Reklam Alanı 2</span>
+                        <small>300x250</small>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <span id="statusText">Hazır</span>
+            </div>
+            <div class="status-right">
+                <span id="connectionStatus">
+                    <i class="fas fa-wifi"></i>
+                    Çevrimiçi
+                </span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <i class="fas fa-cube fa-spin"></i>
+            <p>Yükleniyor...</p>
+        </div>
+    </div>
+
+    <script src="js/minecraft-utils.js"></script>
+    <script src="js/launcher-utils.js"></script>
+    <script src="js/server-utils.js"></script>
+    <script src="../assets/scripts/recently-played.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

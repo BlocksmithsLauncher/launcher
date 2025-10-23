@@ -1,0 +1,158 @@
+{
+  "name": "blocksmiths-launcher-public",
+  "version": "1.2.1-public",
+  "description": "Blocksmiths Launcher - Public Reference Version (Proprietary features removed)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "obfuscate": "node obfuscate.js",
+    "restore-backup": "node obfuscate.js restore",
+    "build": "npm run obfuscate && electron-builder",
+    "build:win": "npm run obfuscate && electron-builder --win",
+    "build:win-debug": "electron-builder --win",
+    "build:mac": "npm run obfuscate && electron-builder --mac",
+    "build:linux": "npm run obfuscate && electron-builder --linux",
+    "build:no-obfuscate": "electron-builder",
+    "pack": "electron-builder --dir",
+    "pack:all": "electron-builder --dir --win --mac --linux"
+  },
+  "keywords": [
+    "minecraft",
+    "launcher",
+    "electron",
+    "gaming"
+  ],
+  "author": "Blocksmiths Team",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blocksmiths/launcher-public"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@xmcl/installer": "^6.1.2",
+    "adm-zip": "^0.5.10",
+    "axios": "^1.6.0",
+    "check-disk-space": "^3.4.0",
+    "discord-rpc": "^4.0.1",
+    "dotenv": "^16.6.1",
+    "extract-zip": "^2.0.1",
+    "fs-extra": "^11.3.2",
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5",
+    "node-fetch": "^3.3.2",
+    "p-limit": "^3.1.0",
+    "semver": "^7.5.4",
+    "tar": "^6.2.1",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "electron": "38.2.1",
+    "electron-builder": "^26.0.12",
+    "javascript-obfuscator": "^4.1.1",
+    "webpack-obfuscator": "^3.5.1"
+  },
+  "build": {
+    "appId": "com.blocksmiths.launcher",
+    "productName": "Blocksmiths Launcher",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/msmc/**/*",
+      "node_modules/@xmcl/**/*",
+      "node_modules/tar/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "square-logo.ico",
+      "!src-backup",
+      "!renderer-backup",
+      "!obfuscate.js"
+    ],
+    "extraResources": [
+      {
+        "from": "favicon.ico",
+        "to": "favicon.ico"
+      },
+      {
+        "from": "favicon.ico",
+        "to": "app.ico"
+      },
+      {
+        "from": "build/clear-icon-cache.ps1",
+        "to": "clear-icon-cache.ps1"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "favicon.ico",
+      "signAndEditExecutable": false,
+      "requestedExecutionLevel": "asInvoker",
+      "legalTrademarks": "Blocksmiths Launcher",
+      "fileAssociations": []
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/icon.icns",
+      "category": "public.app-category.games"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/icon.png",
+      "category": "Game"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Blocksmiths Launcher",
+      "installerIcon": "favicon.ico",
+      "uninstallerIcon": "favicon.ico",
+      "installerHeader": "favicon.ico",
+      "installerHeaderIcon": "favicon.ico",
+      "include": "build/installer.nsh",
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "warningsAsErrors": false
+    }
+  }
+}

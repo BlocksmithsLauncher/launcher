@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blocksmiths Launcher - Profil Seçimi</title>
+    <link rel="stylesheet" href="../assets/styles/profile-selector.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="profile-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <img src="../assets/white-logo-wide.png" alt="Blocksmiths">
+            </div>
+            <div class="window-controls">
+                <button class="control-btn minimize" onclick="minimizeWindow()">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="control-btn close" onclick="closeWindow()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="welcome-section">
+                <h1>Hoş Geldiniz!</h1>
+                <p>Oyuna başlamak için bir profil seçin veya yeni profil oluşturun</p>
+            </div>
+
+            <div class="profiles-section">
+                <div class="profiles-grid" id="profilesGrid">
+                    <!-- Profiller buraya yüklenecek -->
+                    <!-- "Yeni Profil" kartı JavaScript ile dinamik olarak eklenecek -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Profile Modal -->
+        <div class="modal-overlay" id="createProfileModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Yeni Profil Oluştur</h2>
+                    <button class="close-modal" onclick="hideCreateProfileModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="createProfileForm">
+                        <div class="form-group">
+                            <label for="playerName">Minecraft Oyuncu Adı</label>
+                            <input type="text" id="playerName" name="playerName" placeholder="Minecraft oyuncu adınızı girin (3-16 karakter)" required maxlength="16" pattern="[a-zA-Z0-9_]{3,16}" autocomplete="off">
+                            <small style="color: #cccccc; font-size: 12px; margin-top: 4px; display: block;">
+                                Sadece harf, rakam ve alt çizgi kullanabilirsiniz. Bu ad oyun içinde görünecektir.
+                            </small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="hideCreateProfileModal()">
+                                İptal
+                            </button>
+                            <button type="submit" class="btn-primary">
+                                Profil Oluştur
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner">
+                <i class="fas fa-cube fa-spin"></i>
+                <p>Yükleniyor...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/minecraft-utils.js"></script>
+    <script src="profile-selector-new.js"></script>
+</body>
+</html>

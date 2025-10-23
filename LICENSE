@@ -1,0 +1,83 @@
+PROPRIETARY LICENSE
+
+Copyright (c) 2024-2025 Blocksmiths Team. All rights reserved.
+
+NOTICE: This is a PUBLIC/REFERENCE version of Blocksmiths Launcher.
+Critical proprietary business logic has been intentionally removed.
+
+TERMS AND CONDITIONS:
+
+1. GRANT OF LICENSE
+   This software is provided for EDUCATIONAL and REFERENCE purposes only.
+   You are granted a non-exclusive, non-transferable, revocable license to:
+   - View and study the source code
+   - Learn from the software architecture
+   - Use as reference for your own non-commercial projects
+
+2. RESTRICTIONS
+   You MAY NOT:
+   - Use this software or derivatives in commercial products
+   - Distribute modified or unmodified versions
+   - Remove or modify this license notice
+   - Claim ownership of the original work
+   - Reverse engineer the removed proprietary components
+   - Create competing launcher products using this code
+
+3. PROPRIETARY COMPONENTS
+   The following systems are PROPRIETARY and NOT included:
+   - Modpack installation and management
+   - Mod loader installation (Fabric/Forge/Quilt/NeoForge)
+   - Mod downloading and dependency resolution
+   - Instance management and isolation
+   - Advanced launch configurations
+   
+   Any attempt to recreate, reverse engineer, or implement these
+   features for commercial use is strictly prohibited.
+
+4. DISCLAIMER OF WARRANTY
+   THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT.
+
+5. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
+   ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+   WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+6. TRADEMARKS
+   "Blocksmiths" and "Blocksmiths Launcher" are trademarks of
+   Blocksmiths Team. You may not use these trademarks without
+   express written permission.
+
+7. TERMINATION
+   This license is effective until terminated. Your rights under
+   this license will terminate automatically without notice if you
+   fail to comply with any of its terms.
+
+8. FULL VERSION
+   For the complete, fully-functional version of Blocksmiths Launcher
+   with modpack support, please visit: https://blocksmiths.com
+
+FOR COMMERCIAL USE OR LICENSING INQUIRIES:
+Email: contact@blocksmiths.com
+Website: https://blocksmiths.com
+
+---
+
+THIRD-PARTY LICENSES:
+
+This software uses the following open-source components:
+
+- Electron (MIT License)
+- Node.js (MIT License)
+- Minecraft Launcher Core (MIT License)
+- Various npm packages (see package.json for details)
+
+These components retain their original licenses.
+
+---
+
+Last Updated: October 2025
+
