@@ -336,14 +336,31 @@ class VanillaLauncher {
 
         const missingLibraries = [];
 
-        // First check which libraries are missing
+        // First check which libraries are missing (both artifacts and native classifiers)
         for (const library of libraries) {
+            // Check main artifact
             if (library.downloads && library.downloads.artifact) {
                 const artifact = library.downloads.artifact;
                 const libPath = path.join(this.librariesDir, artifact.path);
 
                 if (!await fs.pathExists(libPath)) {
-                    missingLibraries.push({ library, artifact, libPath });
+                    missingLibraries.push({ library, artifact, libPath, type: 'artifact' });
+                }
+            }
+            
+            // CRITICAL: Also check native classifiers!
+            if (library.downloads && library.downloads.classifiers) {
+                const osName = this.getOSName();
+                const nativeKey = `natives-${osName}`;
+                
+                if (library.downloads.classifiers[nativeKey]) {
+                    const native = library.downloads.classifiers[nativeKey];
+                    const nativePath = path.join(this.librariesDir, native.path);
+                    
+                    if (!await fs.pathExists(nativePath)) {
+                        console.log(`[VANILLA] Native missing: ${library.name} (${nativeKey})`);
+                        missingLibraries.push({ library, artifact: native, libPath: nativePath, type: 'native' });
+                    }
                 }
             }
         }
@@ -353,25 +370,27 @@ class VanillaLauncher {
             return;
         }
 
-        console.log(`[VANILLA] Downloading ${missingLibraries.length} missing libraries...`);
+        console.log(`[VANILLA] Downloading ${missingLibraries.length} missing libraries (including natives)...`);
 
         for (let i = 0; i < missingLibraries.length; i++) {
-            const { library, artifact, libPath } = missingLibraries[i];
+            const { library, artifact, libPath, type } = missingLibraries[i];
 
             if (sendProgress) {
-                sendProgress('Kütüphaneler İndiriliyor', `${library.name}`, i, missingLibraries.length);
+                const typeLabel = type === 'native' ? ' (Native)' : '';
+                sendProgress('Kütüphaneler İndiriliyor', `${library.name}${typeLabel}`, i, missingLibraries.length);
             }
 
             try {
+                console.log(`[VANILLA] Downloading ${type}: ${library.name} from ${artifact.url}`);
                 const response = await this.downloadWithRetry(artifact.url);
                 const buffer = await response.buffer();
 
                 await fs.ensureDir(path.dirname(libPath));
                 await fs.writeFile(libPath, buffer);
 
-                console.log(`[VANILLA] Downloaded library: ${library.name}`);
+                console.log(`[VANILLA] ✅ Downloaded ${type}: ${library.name}`);
             } catch (error) {
-                console.error(`[VANILLA] Failed to download library ${library.name}:`, error);
+                console.error(`[VANILLA] ❌ Failed to download ${type} ${library.name}:`, error);
                 throw error;
             }
         }
