@@ -151,8 +151,7 @@ class JavaOptimizer {
     }
 }
 
-// Singleton instance
-const javaOptimizer = new JavaOptimizer();
-
-module.exports = javaOptimizer;
+// Export both class and singleton for flexibility
+module.exports = JavaOptimizer;
+module.exports.instance = new JavaOptimizer();
 

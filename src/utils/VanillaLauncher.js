@@ -610,7 +610,7 @@ class VanillaLauncher {
 
         // Get optimized JVM arguments from JavaOptimizer
         const JavaOptimizer = require('./JavaOptimizer');
-        const optimizer = new JavaOptimizer();
+        const optimizer = new JavaOptimizer(); // Class can now be instantiated
         const optimizedArgs = optimizer.getOptimalArgs({
             minecraftVersion: version,
             modloader: 'vanilla',

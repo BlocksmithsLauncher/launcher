@@ -746,10 +746,24 @@ ipcMain.handle('get-active-operations', async () => {
 
 ipcMain.handle('get-available-versions', async (event, forceRefresh = false) => {
     try {
+        console.log('[MAIN] get-available-versions called, forceRefresh:', forceRefresh);
         const versions = await minecraftLauncher.getAvailableVersions(forceRefresh);
+        
+        // Debug log
+        console.log('[MAIN] Versions fetched:', {
+            totalVersions: versions.versions?.length || 0,
+            latest: versions.latest,
+            categorizedCounts: {
+                release: versions.categorized?.release?.length || 0,
+                snapshot: versions.categorized?.snapshot?.length || 0,
+                old_beta: versions.categorized?.old_beta?.length || 0,
+                old_alpha: versions.categorized?.old_alpha?.length || 0
+            }
+        });
+        
         return { success: true, versions };
     } catch (error) {
-        console.error('Failed to get versions:', error);
+        console.error('[MAIN] Failed to get versions:', error);
         return { success: false, error: error.message };
     }
 });
