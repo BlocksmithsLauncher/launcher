@@ -150,6 +150,23 @@ class VanillaLauncher {
                 throw new Error(`Asset validation failed: ${error.message}`);
             }
 
+            // Step 3.5: CRITICAL - Always extract natives (especially for old versions)
+            try {
+                console.log('[VANILLA] Step 3.5: Extracting native libraries...');
+                progress('Native Dosyalar', 'Native kütüphaneler hazırlanıyor...', 6, 8);
+                
+                // Read version data for libraries
+                const versionJsonPath = path.join(this.versionsDir, version, `${version}.json`);
+                const versionData = await fs.readJson(versionJsonPath);
+                
+                // Always re-extract natives to ensure they're fresh
+                await this.extractNatives(version, versionData.libraries);
+                console.log('[VANILLA] Step 3.5: ✅ Natives extracted');
+            } catch (error) {
+                console.error('[VANILLA] Step 3.5: ❌ extractNatives failed:', error);
+                throw new Error(`Native extraction failed: ${error.message}`);
+            }
+
             // Step 4: Find Java
             let javaExecutable, javaVersion;
             try {
@@ -365,8 +382,15 @@ class VanillaLauncher {
      */
     async extractNatives(version, libraries) {
         this.nativesDir = path.join(this.versionsDir, version, 'natives');
+        
+        // CRITICAL: Clean natives directory to avoid conflicts between versions
+        console.log('[VANILLA] Cleaning natives directory...');
+        if (await fs.pathExists(this.nativesDir)) {
+            await fs.remove(this.nativesDir);
+        }
         await fs.ensureDir(this.nativesDir);
 
+        let extractedCount = 0;
         for (const library of libraries) {
             if (library.downloads && library.downloads.classifiers) {
                 const osName = this.getOSName();
@@ -380,15 +404,26 @@ class VanillaLauncher {
                         console.log(`[VANILLA] Extracting native: ${library.name}`);
                         try {
                             await extract(nativePath, { dir: this.nativesDir });
+                            extractedCount++;
                         } catch (error) {
                             console.warn(`[VANILLA] Failed to extract native ${library.name}:`, error.message);
                         }
+                    } else {
+                        console.warn(`[VANILLA] Native not found: ${nativePath}`);
                     }
                 }
             }
         }
 
-        console.log('[VANILLA] Natives extracted');
+        console.log(`[VANILLA] ✅ Natives extracted: ${extractedCount} libraries`);
+        
+        // Verify natives directory has files
+        const nativeFiles = await fs.readdir(this.nativesDir);
+        console.log(`[VANILLA] Natives directory contains ${nativeFiles.length} files`);
+        
+        if (nativeFiles.length === 0) {
+            console.error('[VANILLA] ⚠️ WARNING: No native files extracted!');
+        }
     }
 
     /**
