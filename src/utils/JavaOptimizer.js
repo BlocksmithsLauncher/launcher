@@ -17,14 +17,15 @@ class JavaOptimizer {
 
     /**
      * Get optimal Java arguments for Minecraft
-     * @param {object} options - { minecraftVersion, modloader, modCount }
+     * @param {object} options - { minecraftVersion, modloader, modCount, javaVersion }
      * @returns {object} - { minMemory, maxMemory, jvmArgs }
      */
     getOptimalArgs(options = {}) {
         const {
             minecraftVersion = '1.20.1',
             modloader = 'vanilla',
-            modCount = 0
+            modCount = 0,
+            javaVersion = 17 // Add Java version parameter
         } = options;
 
         const totalRAMGB = Math.floor(this.totalRAM / (1024 ** 3));
@@ -62,20 +63,30 @@ class JavaOptimizer {
         jvmArgs.push(`-Xms${minMemoryGB}G`);
         jvmArgs.push(`-Xmx${maxMemoryGB}G`);
 
-        // Garbage Collection Optimization (Modern Java 17+)
-        if (isModern) {
-            // G1GC with optimized settings for modern Minecraft
+        // Garbage Collection Optimization
+        // CRITICAL: CMS GC removed in Java 14+, use G1GC for modern Java
+        if (javaVersion >= 14 || isModern) {
+            // G1GC for Java 14+ or modern Minecraft (always safe)
             jvmArgs.push('-XX:+UnlockExperimentalVMOptions');
             jvmArgs.push('-XX:+UseG1GC');
             jvmArgs.push('-XX:G1NewSizePercent=20');
             jvmArgs.push('-XX:G1ReservePercent=20');
             jvmArgs.push('-XX:MaxGCPauseMillis=50');
             jvmArgs.push('-XX:G1HeapRegionSize=32M');
+        } else if (javaVersion >= 8 && javaVersion < 14) {
+            // CMS GC for Java 8-13 with legacy Minecraft
+            try {
+                jvmArgs.push('-XX:+UseConcMarkSweepGC');
+                jvmArgs.push('-XX:+CMSIncrementalMode');
+                jvmArgs.push('-XX:-UseAdaptiveSizePolicy');
+            } catch (e) {
+                // Fallback to G1GC if CMS fails
+                console.log('[JAVA-OPTIMIZER] CMS GC not available, falling back to G1GC');
+                jvmArgs.push('-XX:+UseG1GC');
+            }
         } else {
-            // Legacy Minecraft (pre-1.17)
-            jvmArgs.push('-XX:+UseConcMarkSweepGC');
-            jvmArgs.push('-XX:+CMSIncrementalMode');
-            jvmArgs.push('-XX:-UseAdaptiveSizePolicy');
+            // Default to G1GC for safety
+            jvmArgs.push('-XX:+UseG1GC');
         }
 
         // Performance optimizations

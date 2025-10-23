@@ -151,12 +151,29 @@ class VanillaLauncher {
             }
 
             // Step 4: Find Java
-            let javaExecutable;
+            let javaExecutable, javaVersion;
             try {
                 console.log('[VANILLA] Step 4: Finding Java...');
                 progress('Java Kontrol Ediliyor', 'Java runtime bulunuyor...', 7, 8);
-                javaExecutable = javaPath || await this.findJava(version);
-                console.log('[VANILLA] Step 4: ✅ Using Java:', javaExecutable);
+                
+                if (javaPath) {
+                    // If javaPath provided, detect its version
+                    javaExecutable = javaPath;
+                    try {
+                        const JavaDetector = require('./JavaDetector');
+                        const detector = new JavaDetector();
+                        javaVersion = await detector.getJavaVersion(javaPath);
+                    } catch (e) {
+                        javaVersion = 17; // Default fallback
+                    }
+                } else {
+                    // Auto-detect Java
+                    const javaInfo = await this.findJava(version);
+                    javaExecutable = javaInfo.path;
+                    javaVersion = javaInfo.version;
+                }
+                
+                console.log(`[VANILLA] Step 4: ✅ Using Java ${javaVersion}:`, javaExecutable);
             } catch (error) {
                 console.error('[VANILLA] Step 4: ❌ findJava failed:', error);
                 throw new Error(`Java detection failed: ${error.message}`);
@@ -173,6 +190,7 @@ class VanillaLauncher {
                     memory,
                     minMemory,
                     javaExecutable,
+                    javaVersion, // Pass Java version for JVM args optimization
                     javaArgs,
                     windowWidth,
                     windowHeight,
@@ -198,7 +216,7 @@ class VanillaLauncher {
             }
 
             console.log('[VANILLA] ✅ Minecraft launched successfully');
-            return { success: true, process, javaPath: javaExecutable, args };
+            return { success: true, process, javaPath: javaExecutable, javaVersion, args };
 
         } catch (error) {
             console.error('[VANILLA] ❌ Launch failed:', error);
@@ -558,6 +576,7 @@ class VanillaLauncher {
             memory,
             minMemory,
             javaExecutable,
+            javaVersion = 17, // Java version for GC optimization
             javaArgs = [],
             windowWidth,
             windowHeight,
@@ -589,9 +608,22 @@ class VanillaLauncher {
         const clientJar = path.join(this.versionsDir, version, `${version}.jar`);
         classpath.push(clientJar);
 
-        // JVM arguments
+        // Get optimized JVM arguments from JavaOptimizer
+        const JavaOptimizer = require('./JavaOptimizer');
+        const optimizer = new JavaOptimizer();
+        const optimizedArgs = optimizer.getOptimalArgs({
+            minecraftVersion: version,
+            modloader: 'vanilla',
+            modCount: 0,
+            javaVersion: javaVersion // Pass Java version for GC selection
+        });
+
+        console.log(`[VANILLA] Using optimized JVM args for Java ${javaVersion}:`, optimizedArgs.jvmArgs.slice(0, 5));
+
+        // JVM arguments (merge custom + optimized + system)
         const jvmArgs = [
             ...javaArgs, // Custom Java args first
+            ...optimizedArgs.jvmArgs, // Optimized GC and performance args
             `-Xmx${memory}M`,
             `-Xms${minMemory}M`,
             `-Djava.library.path=${this.nativesDir}`,
@@ -723,14 +755,18 @@ class VanillaLauncher {
 
     /**
      * Find Java installation
+     * @returns {Promise<{path: string, version: number}>} Java path and version
      */
     async findJava(minecraftVersion = null) {
         // Try JavaDetector first
         try {
-            const javaDetector = require('./JavaDetector');
-            const javaPath = await javaDetector.getJavaPath(17, minecraftVersion);
+            const JavaDetector = require('./JavaDetector');
+            const detector = new JavaDetector();
+            const javaPath = await detector.getJavaPath(17, minecraftVersion);
             if (javaPath) {
-                return javaPath;
+                const version = detector.javaVersion || await detector.getJavaVersion(javaPath);
+                console.log(`[VANILLA] Found Java ${version} at:`, javaPath);
+                return { path: javaPath, version: version };
             }
         } catch (error) {
             console.warn('[VANILLA] JavaDetector failed, trying fallback:', error.message);
@@ -747,7 +783,15 @@ class VanillaLauncher {
         for (const javaPath of possiblePaths) {
             if (await fs.pathExists(javaPath)) {
                 console.log('[VANILLA] Found Java at:', javaPath);
-                return javaPath;
+                // Try to detect version
+                try {
+                    const JavaDetector = require('./JavaDetector');
+                    const detector = new JavaDetector();
+                    const version = await detector.getJavaVersion(javaPath);
+                    return { path: javaPath, version: version };
+                } catch (e) {
+                    return { path: javaPath, version: 17 }; // Default fallback
+                }
             }
         }
 
@@ -757,7 +801,15 @@ class VanillaLauncher {
             const javaPath = path.join(javaEnv, 'bin', process.platform === 'win32' ? 'javaw.exe' : 'java');
             if (await fs.pathExists(javaPath)) {
                 console.log('[VANILLA] Found Java via JAVA_HOME:', javaPath);
-                return javaPath;
+                // Try to detect version
+                try {
+                    const JavaDetector = require('./JavaDetector');
+                    const detector = new JavaDetector();
+                    const version = await detector.getJavaVersion(javaPath);
+                    return { path: javaPath, version: version };
+                } catch (e) {
+                    return { path: javaPath, version: 17 }; // Default fallback
+                }
             }
         }
 

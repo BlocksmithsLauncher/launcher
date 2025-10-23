@@ -1538,7 +1538,11 @@ async function loadAvailableVersions(forceRefresh = false) {
             updateStatusBar('Minecraft versiyonları yükleniyor...');
         }
         
+        console.log('[VERSIONS] Fetching available Minecraft versions...');
         const result = await ipcRenderer.invoke('get-available-versions', forceRefresh);
+        
+        console.log('[VERSIONS] Result:', result);
+        
         if (result.success) {
             const versionSelect = document.getElementById('versionSelect');
             if (versionSelect) {
@@ -1546,6 +1550,12 @@ async function loadAvailableVersions(forceRefresh = false) {
                 versionSelect.innerHTML = '';
                 
                 const data = result.versions;
+                
+                console.log('[VERSIONS] Data received:', {
+                    latest: data.latest,
+                    totalVersions: data.versions?.length || 0,
+                    releaseCount: data.categorized?.release?.length || 0
+                });
                 
                 // Add Latest Release
                 if (data.latest && data.latest.release) {
@@ -1628,7 +1638,7 @@ async function loadAvailableVersions(forceRefresh = false) {
                 }
                 
                 const totalVersions = Object.values(data.categorized || {}).reduce((sum, arr) => sum + arr.length, 0);
-                console.log(`Loaded ${totalVersions} Minecraft versions`);
+                console.log(`[VERSIONS] ✅ Loaded ${totalVersions} Minecraft versions`);
                 updateStatusBar(`${totalVersions} Minecraft versiyonu yüklendi`);
                 
                 // Auto-refresh versions every 30 minutes
@@ -1639,9 +1649,15 @@ async function loadAvailableVersions(forceRefresh = false) {
                     }, 30 * 60 * 1000); // 30 minutes
                 }
             }
+        } else {
+            // Handle failure case
+            console.error('[VERSIONS] ❌ Failed to fetch versions:', result.error);
+            console.error('[VERSIONS] Fallback versions should have been provided by backend');
+            showNotification('Minecraft versiyonları yüklenemedi (fallback kullanılıyor)', 'warning');
+            updateStatusBar('Versiyon yükleme hatası - fallback kullanılıyor');
         }
     } catch (error) {
-        console.error('Versiyon listesi yüklenirken hata:', error);
+        console.error('[VERSIONS] ❌ Versiyon listesi yüklenirken hata:', error);
         showNotification('Minecraft versiyonları yüklenemedi', 'error');
         updateStatusBar('Versiyon yükleme hatası');
     }
