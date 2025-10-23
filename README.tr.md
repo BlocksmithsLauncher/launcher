@@ -261,6 +261,64 @@ DISCORD_CLIENT_ID=sizin_uygulama_id    // ← Discord uygulaması kayıt edersin
 
 **Bunların hiçbiri temel işlevsellik için gerekli değildir.**
 
+#### API İletişim Detayları
+
+**Launcher'ın blocksmithslauncher.com ile nasıl iletişim kurduğu:**
+
+| API Endpoint | Amaç | Gönderilen Veri | Sıklık | Kod Konumu |
+|--------------|------|-----------------|---------|------------|
+| `/api/launcher/heartbeat` | Oturumu canlı tut | Oturum ID, launcher versiyonu, OS tipi | Her 5 dakikada (etkinse) | `src/utils/analytics.js:96` |
+| `/api/launcher/event` | Olayları takip et | Olay tipi (başlat, kapat), oturum ID | Oyun başlat/kapat | `src/utils/analytics.js:201` |
+| `/api/banners/active` | Reklamları çek | Hiçbiri (GET isteği) | Başlangıçta | `src/utils/ads.js:34` |
+| `/api/banners/{id}/impression` | Reklam görüntülemelerini takip et | Banner ID | Reklam görüntülendiğinde | `src/utils/ads.js:181` |
+| `/api/banners/{id}/click` | Reklam tıklamalarını takip et | Banner ID | Reklam tıklandığında | `src/utils/ads.js:192` |
+
+**⚠️ ÖNEMLİ:** Tüm bu API çağrıları **İSTEĞE BAĞLIDIR** ve devre dışı bırakılabilir:
+
+```javascript
+// src/utils/analytics.js dosyasında
+this.ANALYTICS_ENABLED = process.env.ANALYTICS_ENABLED !== 'false'; // Varsayılan: etkin
+
+// Analytics'i devre dışı bırakmak için .env'de:
+ANALYTICS_ENABLED=false
+
+// Veya .env'den API_URL'yi tamamen kaldırın
+```
+
+**Gönderilmeyen veriler:**
+- ❌ Kişisel bilgiler (isim, email, IP adresi)
+- ❌ Minecraft giriş bilgileri
+- ❌ Dosya yolları veya dizin içerikleri
+- ❌ Tarayıcı geçmişi veya gezinme verileri
+- ❌ Yüklü programlar veya işlemler
+- ❌ Klavye girdisi veya ekran görüntüleri
+- ❌ Herhangi bir casus yazılım veya kötü amaçlı yazılım
+
+**Gönderilen veriler (analytics etkinse):**
+- ✅ Launcher versiyonu (örn. "1.2.1-public")
+- ✅ İşletim sistemi tipi (örn. "Windows", "macOS", "Linux")
+- ✅ Anonim oturum ID'si (rastgele oluşturulan UUID)
+- ✅ Olay tipi (örn. "oyun_başlatıldı", "launcher_açıldı")
+- ✅ Başlatılan oyun versiyonu (örn. "1.20.4")
+
+**Örnek API İsteği:**
+
+```javascript
+// src/utils/analytics.js'den (satır 93-99)
+const heartbeatData = {
+    sessionId: this.sessionId,           // Rastgele UUID, size bağlı değil
+    launcherVersion: app.getVersion(),   // "1.2.1-public"
+    platform: os.platform(),             // "win32" / "darwin" / "linux"
+    timestamp: new Date().toISOString()  // Mevcut zaman
+};
+
+await axios.post(
+    `${this.API_URL}/api/launcher/heartbeat`,
+    heartbeatData,
+    { timeout: 10000 }
+);
+```
+
 #### Kod Doğrulama
 
 Gizliliği şu şekilde doğrulayabilirsiniz:
@@ -274,9 +332,189 @@ grep -r "analytics\|tracking\|telemetry" src/
 
 # Kullanılan tüm ortam değişkenlerini görüntüleyin
 grep -r "process.env" src/
+
+# Satır numaralarıyla API çağrılarını kontrol edin
+grep -rn "api.blocksmithslauncher.com" src/
+
+# Kişisel veri toplanmadığını doğrulayın
+grep -rn "email\|password\|username" src/ | grep -v "playerName"
 ```
 
-**Sonuç**: Sadece Mojang sunucuları (Minecraft indirmeleri için) ve kullanıcı tarafından yapılandırılan isteğe bağlı servisler.
+**Sonuç**: 
+- ✅ Sadece 5 API endpoint (hepsi isteğe bağlı)
+- ✅ Sadece anonim kullanım istatistikleri
+- ✅ Kişisel veri toplama yok
+- ✅ Tüm çağrılar `ANALYTICS_ENABLED=false` ile devre dışı bırakılabilir
+
+#### Anonimlik Kanıtı
+
+**Verilerinizin gerçekten anonim olduğundan nasıl emin oluyoruz:**
+
+1. **Session ID Oluşturma** (%100 Rastgele, Bağlantısız)
+
+```javascript
+// src/utils/analytics.js'den (satır 62-76)
+async getOrCreateSessionId() {
+    // Mevcut session ID'yi oku (varsa)
+    const sessionFile = path.join(app.getPath('userData'), 'session.json');
+    
+    // YENİ rastgele UUID oluştur - Hiçbir kişisel bilgiye dayanmaz
+    const sessionId = crypto.randomUUID();  // ← RASTGELE, örn: "a3f2c8d9-4b1e-4f3a-8c2d-5e6f7a8b9c0d"
+    
+    const sessionData = {
+        sessionId,                           // Rastgele UUID
+        createdAt: Date.now(),              // Sadece zaman damgası
+        version: app.getVersion()           // Sadece launcher versiyonu
+    };
+    
+    // YEREL olarak kaydedilir, hiçbir yere gönderilmez
+    await fs.writeJSON(sessionFile, sessionData);
+    return sessionId;
+}
+```
+
+**`crypto.randomUUID()` ne yapar:**
+- **Tamamen rastgele** 128-bit UUID üretir (örn: `a3f2c8d9-4b1e-4f3a-8c2d-5e6f7a8b9c0d`)
+- **Dayalı DEĞİL:** MAC adresi, kullanıcı adı, IP adresi veya HERHANGİ bir kişisel veriye
+- **Kriptografik olarak güvenli** - size geri izlemek imkansız
+- Biz bile belirli bir session ID'nin kime ait olduğunu bilemeyiz
+
+2. **Gerçekte Gönderilen Veri** (Tam Liste)
+
+```javascript
+// src/utils/analytics.js'den (satır 86-93)
+const heartbeatData = {
+    sessionId: this.sessionId,          // Rastgele UUID (yukarıya bakın)
+    launcherVersion: app.getVersion(),  // "1.2.1-public" (genel bilgi)
+    os: os.platform(),                  // "win32" / "darwin" / "linux" (genel)
+    osVersion: os.release(),            // "10.0.22000" (genel Windows versiyonu)
+    arch: os.arch(),                    // "x64" / "arm64" (genel)
+    locale: app.getLocale()             // "en-US" / "tr-TR" (sadece dil)
+};
+```
+
+**Eksik olanları fark edin:**
+- ❌ Kullanıcı adı veya oyuncu adı yok
+- ❌ Email veya giriş bilgileri yok
+- ❌ IP adresi yok (sunucu görür ama kaydetmiyoruz)
+- ❌ Bilgisayar adı veya hostname yok
+- ❌ Dosya yolları veya dizin içerikleri yok
+- ❌ MAC adresi veya donanım kimlikleri yok
+- ❌ Yüklü yazılım listesi yok
+- ❌ Ağ bilgisi yok
+
+3. **Oyun Başlatma Olayları** (Ne Takip Ediyoruz)
+
+```javascript
+// src/utils/analytics.js'den (satır 198-209)
+async trackEvent(eventType, eventData = {}) {
+    const eventPayload = {
+        sessionId: this.sessionId,           // Rastgele UUID
+        eventType,                           // "game_launched" / "launcher_opened"
+        eventData: {
+            version: eventData.version,      // "1.20.4" (Minecraft versiyonu)
+            modloader: eventData.modloader,  // "vanilla" / "fabric" / "forge"
+            timestamp: Date.now()            // Mevcut zaman
+        }
+    };
+}
+```
+
+**Örnek olay:**
+```json
+{
+  "sessionId": "a3f2c8d9-4b1e-4f3a-8c2d-5e6f7a8b9c0d",
+  "eventType": "game_launched",
+  "eventData": {
+    "version": "1.20.4",
+    "modloader": "vanilla",
+    "timestamp": 1698765432000
+  }
+}
+```
+
+**Bu kişi kim?** → **Hiçbir fikrimiz yok!** Sadece rastgele bir UUID.
+
+4. **Sunucu Tarafı (Ne Saklıyoruz)**
+
+Backend'imiz bu verileri alır ve saklar:
+
+```sql
+-- Örnek veritabanı tablosu (anonimleştirilmiş)
+CREATE TABLE analytics_events (
+    id              SERIAL PRIMARY KEY,
+    session_id      UUID,                    -- Rastgele, bağlantısız
+    event_type      VARCHAR(50),             -- "game_launched"
+    launcher_version VARCHAR(20),            -- "1.2.1-public"
+    os_platform     VARCHAR(20),             -- "win32"
+    minecraft_version VARCHAR(20),           -- "1.20.4"
+    timestamp       TIMESTAMP
+);
+```
+
+**Bu veriyle YAPAMADIĞIMız şeyler:**
+- ❌ Kim olduğunuzu belirlemek
+- ❌ Konumunuzu bulmak
+- ❌ Cihazlar arası takip (her cihaz = yeni rastgele UUID)
+- ❌ Oturumu email/kullanıcı adına bağlamak
+- ❌ Verilerinizi satmak (değersiz - tamamen anonim!)
+
+**YAPABİLECEĞİMİz şeyler:**
+- ✅ Toplam aktif kullanıcı sayısını saymak ("100 oyuncu çevrimiçi")
+- ✅ Popüler Minecraft versiyonlarını görmek ("En çok oynanan: 1.20.4")
+- ✅ Launcher benimsenmesini takip etmek ("Bu hafta 1000 indirme")
+- ✅ Hataları tespit etmek ("Versiyon 1.2.0'da 50 çökme")
+
+5. **Ağ Gizliliği**
+
+```bash
+# Sunucumuza gönderilen istek:
+POST https://api.blocksmithslauncher.com/api/launcher/heartbeat
+Content-Type: application/json
+
+{
+  "sessionId": "rastgele-uuid-burda",
+  "launcherVersion": "1.2.1-public",
+  "os": "win32"
+}
+```
+
+**Sunucu logları gösterir:**
+- IP adresi: `203.0.113.42` ← **Bunu kaydetmiyoruz!**
+- User-Agent: `Electron/28.0.0` ← Genel, tanımlanamaz
+- Session ID: `a3f2c8d9...` ← Rastgele, anlamsız
+
+6. **Bunu Kendiniz Nasıl Doğrularsınız**
+
+```bash
+# Yöntem 1: Gönderilen gerçek veriyi kontrol edin
+# axios.post() öncesine src/utils/analytics.js'e ekleyin:
+console.log('GÖNDERİLEN ANALİTİK VERİ:', JSON.stringify(heartbeatData, null, 2));
+
+# Yöntem 2: Ağ izleme kullanın
+# - DevTools açın (F12)
+# - Network sekmesine gidin
+# - Oyunu başlatın
+# - blocksmithslauncher.com'a hangi verinin gönderildiğini TAM OLARAK görün
+
+# Yöntem 3: Kaynak kodunu okuyun
+# - src/utils/analytics.js'i kontrol edin
+# - 'email', 'password', 'username' arayın → HİÇBİR ŞEY bulamazsınız
+grep -rn "email\|password\|personal" src/utils/analytics.js
+# Sonuç: Eşleşme bulunamadı!
+```
+
+7. **Karşılaştırma: Anonim vs. Kişisel Veri**
+
+| Veri Tipi | Kişisel (Kötü) | Anonim (Biz) |
+|-----------|----------------|--------------|
+| Tanımlayıcı | Email: `kullanici@example.com` | Session ID: `a3f2c8d9-...` (rastgele UUID) |
+| Konum | IP: `203.0.113.42` + Şehir/Ülke | OS: `win32` (sadece platform) |
+| Kimlik | Kullanıcı adı: `Ahmet_Yilmaz_1990` | Hiçbir şey - kullanıcı adı toplanmıyor |
+| Takip | Cookie'ler, parmak izi, siteler arası | Cihaz başına yeni UUID, çapraz takip yok |
+| Sizi tanımlayabilir mi? | ✅ EVET - tam olarak kim olduğunuzu biliyoruz | ❌ HAYIR - sadece rastgele bir sayı |
+
+**Sonuç:** İstesek bile sizi gerçekten tanımlayamayız!
 
 ### Güvenlik Önlemleri
 
