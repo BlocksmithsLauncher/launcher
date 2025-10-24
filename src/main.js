@@ -313,12 +313,27 @@ app.on('before-quit', async (event) => {
     // Cleanup analytics
     await analytics.cleanup();
     
+    // Cleanup intervals and timers
+    if (global.versionRefreshInterval) {
+        clearInterval(global.versionRefreshInterval);
+        global.versionRefreshInterval = null;
+    }
+    
     if (minecraftLauncher && minecraftLauncher.isGameRunning) {
         try {
             console.log('[APP] Stopping Minecraft before quit...');
             await minecraftLauncher.stopGame();
         } catch (error) {
             console.error('[APP] Error stopping game on quit:', error);
+        }
+    }
+    
+    // Cleanup launcher
+    if (minecraftLauncher) {
+        try {
+            minecraftLauncher.destroy();
+        } catch (error) {
+            console.error('[APP] Error destroying launcher:', error);
         }
     }
 });

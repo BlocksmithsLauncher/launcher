@@ -796,7 +796,7 @@ class VanillaLauncher {
             });
 
             // Timeout after 60 seconds (increased from 30)
-            setTimeout(() => {
+            const timeoutId = setTimeout(() => {
                 if (!launched) {
                     console.error('[VANILLA] ❌ Launch timeout after 60 seconds');
                     console.error('[VANILLA] Stderr output:', stderrBuffer.join('\n'));
@@ -804,6 +804,13 @@ class VanillaLauncher {
                     reject(new Error('Minecraft launch timeout (60s). Check logs for details.'));
                 }
             }, 60000);
+            
+            // Clear timeout if launched successfully
+            process.on('spawn', () => {
+                if (launched) {
+                    clearTimeout(timeoutId);
+                }
+            });
         });
     }
 

@@ -200,26 +200,52 @@ class MinecraftLauncher {
             const data = await response.json();
             console.log(`[LAUNCHER] ✅ Fetched ${data.versions.length} Minecraft versions`);
             
-            // Versiyonları kategorilere ayır
+            // CRITICAL: Filter versions to only include 1.8.9 and later
+            const minVersion = '1.8.9';
+            const filteredVersions = data.versions.filter(version => {
+                // Only include release and snapshot versions
+                if (version.type !== 'release' && version.type !== 'snapshot') {
+                    return false;
+                }
+                
+                // Parse version number for comparison
+                const versionParts = version.id.split('.').map(Number);
+                const minVersionParts = minVersion.split('.').map(Number);
+                
+                // Compare major.minor.patch
+                for (let i = 0; i < Math.max(versionParts.length, minVersionParts.length); i++) {
+                    const v = versionParts[i] || 0;
+                    const m = minVersionParts[i] || 0;
+                    
+                    if (v > m) return true;
+                    if (v < m) return false;
+                }
+                
+                return true; // Equal versions are included
+            });
+            
+            console.log(`[LAUNCHER] ✅ Filtered to ${filteredVersions.length} versions (1.8.9+)`);
+            
+            // Versiyonları kategorilere ayır (sadece 1.8.9+)
             const categorizedVersions = {
-                release: data.versions.filter(v => v.type === 'release'),
-                snapshot: data.versions.filter(v => v.type === 'snapshot'),
-                old_beta: data.versions.filter(v => v.type === 'old_beta'),
-                old_alpha: data.versions.filter(v => v.type === 'old_alpha')
+                release: filteredVersions.filter(v => v.type === 'release'),
+                snapshot: filteredVersions.filter(v => v.type === 'snapshot'),
+                old_beta: [], // Disabled - no old beta versions
+                old_alpha: [] // Disabled - no old alpha versions
             };
             
             console.log(`[LAUNCHER] Releases: ${categorizedVersions.release.length}, Snapshots: ${categorizedVersions.snapshot.length}`);
             
             return {
                 latest: data.latest,
-                versions: data.versions,
+                versions: filteredVersions,
                 categorized: categorizedVersions
             };
         } catch (error) {
             console.error('[LAUNCHER] ❌ Error fetching versions from Mojang:', error.message);
             console.error('[LAUNCHER] Using fallback versions...');
             
-            // Fallback: Popular versions if fetch fails
+            // Fallback: Only 1.8.9+ versions if fetch fails
             const fallbackVersions = [
                 { id: '1.21.4', type: 'release', url: 'https://piston-meta.mojang.com/v1/packages/d6c94fef3c7dfa7b905e8c44d83f5e840c89b6c8/1.21.4.json' },
                 { id: '1.21.3', type: 'release', url: 'https://piston-meta.mojang.com/v1/packages/5f84f3720e8bd0a42d4f3f1f3e4e5e740c4b5e84/1.21.3.json' },
@@ -1123,6 +1149,28 @@ class MinecraftLauncher {
         console.log('[LAUNCHER] Event listeners cleaned up');
         
         return result;
+    }
+
+    /**
+     * Cleanup and destroy launcher
+     */
+    destroy() {
+        console.log('[LAUNCHER] Cleaning up launcher...');
+        
+        // Cleanup managers
+        if (this.gameStateManager) {
+            this.gameStateManager.destroy();
+        }
+        
+        if (this.progressTracker) {
+            this.progressTracker.destroy();
+        }
+        
+        if (this.eventManager) {
+            this.eventManager.removeAllListeners();
+        }
+        
+        console.log('[LAUNCHER] ✅ Launcher cleanup complete');
     }
             
     resetGameState() {

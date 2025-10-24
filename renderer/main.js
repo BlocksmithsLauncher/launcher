@@ -1602,35 +1602,11 @@ async function loadAvailableVersions(forceRefresh = false) {
                     versionSelect.appendChild(snapshotGroup);
                 }
                 
-                // Add Old Beta versions - ALL betas
-                if (data.categorized && data.categorized.old_beta.length > 0) {
-                    const betaGroup = document.createElement('optgroup');
-                    betaGroup.label = 'Eski Beta Sürümleri';
-                    
-                    // Show ALL beta versions
-                    data.categorized.old_beta.forEach(version => {
-                        const option = document.createElement('option');
-                        option.value = version.id;
-                        option.textContent = `${version.id} (Beta)`;
-                        betaGroup.appendChild(option);
-                    });
-                    versionSelect.appendChild(betaGroup);
-                }
+                // DISABLED: Old Beta versions (1.8.9+ only)
+                // Old beta versions are no longer supported
                 
-                // Add Old Alpha versions - ALL alphas
-                if (data.categorized && data.categorized.old_alpha.length > 0) {
-                    const alphaGroup = document.createElement('optgroup');
-                    alphaGroup.label = 'Eski Alpha Sürümleri';
-                    
-                    // Show ALL alpha versions
-                    data.categorized.old_alpha.forEach(version => {
-                        const option = document.createElement('option');
-                        option.value = version.id;
-                        option.textContent = `${version.id} (Alpha)`;
-                        alphaGroup.appendChild(option);
-                    });
-                    versionSelect.appendChild(alphaGroup);
-                }
+                // DISABLED: Old Alpha versions (1.8.9+ only)  
+                // Old alpha versions are no longer supported
                 
                 // Set default to latest release
                 if (data.latest && data.latest.release) {
@@ -1648,6 +1624,14 @@ async function loadAvailableVersions(forceRefresh = false) {
                         loadAvailableVersions(true);
                     }, 30 * 60 * 1000); // 30 minutes
                 }
+                
+                // Cleanup on page unload
+                window.addEventListener('beforeunload', () => {
+                    if (window.versionRefreshInterval) {
+                        clearInterval(window.versionRefreshInterval);
+                        window.versionRefreshInterval = null;
+                    }
+                });
             }
         } else {
             // Handle failure case
