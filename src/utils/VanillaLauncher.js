@@ -823,11 +823,10 @@ class VanillaLauncher {
         try {
             const JavaDetector = require('./JavaDetector');
             const detector = new JavaDetector();
-            const javaPath = await detector.getJavaPath(17, minecraftVersion);
-            if (javaPath) {
-                const version = detector.javaVersion || await detector.getJavaVersion(javaPath);
-                console.log(`[VANILLA] Found Java ${version} at:`, javaPath);
-                return { path: javaPath, version: version };
+            const bestJava = await detector.getBestJava(minecraftVersion || '1.20.1');
+            if (bestJava) {
+                console.log(`[VANILLA] Found Java ${bestJava.version} at:`, bestJava.path);
+                return { path: bestJava.path, version: bestJava.version };
             }
         } catch (error) {
             console.warn('[VANILLA] JavaDetector failed, trying fallback:', error.message);

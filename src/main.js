@@ -11,6 +11,7 @@ const LocalModpacksManager = require('./utils/localModpacks');
 const updater = require('./utils/updater');
 const analytics = require('./utils/analytics');
 const discordRPC = require('./utils/discord-rpc');
+const MemoryManager = require('./utils/MemoryManager');
 
 // Ana pencere referansı
 let mainWindow;
@@ -18,6 +19,9 @@ let profileWindow;
 
 // Minecraft Launcher instance
 let minecraftLauncher;
+
+// Memory Manager instance
+let memoryManager;
 
 // Get icon path (works in both dev and production)
 function getIconPath() {
@@ -242,6 +246,15 @@ app.whenReady().then(async () => {
             console.error('[APP] Analytics failed (non-critical):', error.message);
         }
         
+        // Initialize Memory Manager
+        try {
+            memoryManager = new MemoryManager();
+            global.memoryManager = memoryManager; // Make globally available
+            console.log('[APP] Memory Manager initialized');
+        } catch (error) {
+            console.error('[APP] Memory Manager failed (non-critical):', error.message);
+        }
+        
         // Initialize Minecraft Launcher
         try {
             minecraftLauncher = new MinecraftLauncher();
@@ -334,6 +347,16 @@ app.on('before-quit', async (event) => {
             minecraftLauncher.destroy();
         } catch (error) {
             console.error('[APP] Error destroying launcher:', error);
+        }
+    }
+    
+    // Cleanup Memory Manager
+    if (memoryManager) {
+        try {
+            memoryManager.cleanup();
+            console.log('[APP] Memory Manager cleaned up');
+        } catch (error) {
+            console.error('[APP] Error cleaning up Memory Manager:', error);
         }
     }
 });

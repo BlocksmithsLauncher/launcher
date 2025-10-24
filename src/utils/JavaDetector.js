@@ -1,512 +1,325 @@
 const fs = require('fs-extra');
 const path = require('path');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
+const { spawn } = require('child_process');
 
 /**
- * JAVA DETECTOR
- * Automatically detects and validates Java installations
- * - Checks system PATH
- * - Scans common Java installation directories
- * - Validates Java version
- * - Downloads bundled Java if needed
+ * ENHANCED JAVA DETECTOR
+ * Based on TLegacy and XLauncher analysis
+ * 
+ * Features:
+ * - Automatic Java detection
+ * - Architecture detection (x64, arm64)
+ * - Version validation
+ * - Caching system
+ * - Error handling
+ * - Cross-platform support
  */
 class JavaDetector {
     constructor() {
-        this.cachedJavaPath = null;
-        this.javaVersion = null;
+        this.commonPaths = this.getCommonJavaPaths();
+        this.detectedJavas = new Map();
+        this.cache = new Map();
+        this.cacheTimeout = 30 * 60 * 1000; // 30 minutes
     }
 
     /**
-     * Get Java executable path with automatic detection
-     * @param {number} minVersion - Minimum required Java version (default: 17)
-     * @returns {Promise<string>} - Path to java.exe/javaw.exe
+     * Get common Java installation paths for current platform
      */
-    async getJavaPath(minVersion = 17, minecraftVersion = null) {
-        // Return cached path if available and meets requirements
-        if (this.cachedJavaPath && this.javaVersion >= minVersion) {
-            console.log('[JAVA] Using in-memory cached Java path:', this.cachedJavaPath);
-            return this.cachedJavaPath;
-        }
-
-        // Try persistent cache first (faster startup)
-        const persistentCache = await this.loadPersistentCache();
-        if (persistentCache && persistentCache.javaPath) {
-            // Validate cached Java still exists and works
-            if (await this.validateJava(persistentCache.javaPath)) {
-                const version = await this.getJavaVersion(persistentCache.javaPath);
-                if (version >= minVersion) {
-                    console.log('[JAVA] Using persistent cached Java:', persistentCache.javaPath, `(v${version})`);
-                    this.cachedJavaPath = persistentCache.javaPath;
-                    this.javaVersion = version;
-                    return persistentCache.javaPath;
-                } else {
-                    console.log(`[JAVA] Persistent cache version ${version} < required ${minVersion}, re-detecting...`);
-                }
-            } else {
-                console.log('[JAVA] Persistent cache invalid, re-detecting...');
-            }
-        }
-
-        console.log(`[JAVA] Detecting Java ${minVersion}+ installation...`);
-
-        // Try detection methods in order (system Java first)
-        const detectionMethods = [
-            () => this.checkSystemPath(),
-            () => this.checkJavaHome(),
-            () => this.checkCommonPaths(),
-            () => this.checkMinecraftLauncher()
-        ];
-
-        let bestJava = null;
-        let bestVersion = 0;
-
-        for (const method of detectionMethods) {
-            try {
-                const javaPath = await method();
-                if (javaPath) {
-                    // Validate Java version
-                    const version = await this.getJavaVersion(javaPath);
-                    console.log(`[JAVA] Found Java ${version}: ${javaPath}`);
-                    
-                    if (version >= minVersion) {
-                        console.log(`[JAVA] ✅ Using system Java ${version} (meets requirement: ${minVersion}+)`);
-                        this.cachedJavaPath = javaPath;
-                        this.javaVersion = version;
-                        
-                        // Save to persistent cache for faster next startup
-                        await this.savePersistentCache(javaPath, version);
-                        
-                        return javaPath;
-                    } else if (version > bestVersion) {
-                        console.log(`[JAVA] Java ${version} is best so far (need ${minVersion}+)`);
-                        bestJava = javaPath;
-                        bestVersion = version;
-                    }
-                }
-            } catch (error) {
-                console.error(`[JAVA] Detection method failed:`, error.message);
-            }
-        }
-
-        // If system Java doesn't meet requirements, use bundled Java
-        console.log(`[JAVA] System Java insufficient, using bundled Java...`);
-        try {
-            const bundledJava = await this.downloadBundledJava(minVersion, minecraftVersion);
-            if (bundledJava) {
-                console.log(`[JAVA] ✅ Using bundled Java: ${bundledJava}`);
-                this.cachedJavaPath = bundledJava;
-                this.javaVersion = minVersion;
-                return bundledJava;
-            }
-        } catch (error) {
-            console.error(`[JAVA] Bundled Java failed:`, error.message);
-        }
-
-        // If we found ANY Java, use it even if version is lower (last resort)
-        if (bestJava) {
-            console.log(`[JAVA] ⚠️ Using Java ${bestVersion} (recommended: ${minVersion}+)`);
-            this.cachedJavaPath = bestJava;
-            this.javaVersion = bestVersion;
-            return bestJava;
-        }
-
-        throw new Error(`Java ${minVersion}+ bulunamadı ve otomatik indirme başarısız oldu. Lütfen Java ${minVersion} veya üstünü manuel olarak yükleyin.`);
-    }
-
-    /**
-     * Check system PATH for java
-     */
-    async checkSystemPath() {
-        try {
-            console.log('[JAVA] Checking system PATH...');
-            
-            let bestPath = null;
-            let bestVersion = 0;
-            
-            if (process.platform === 'win32') {
-                // Try both java.exe and javaw.exe
-                for (const javaCmd of ['javaw.exe', 'java.exe']) {
-                    try {
-                        const { stdout } = await execAsync(`where ${javaCmd}`);
-                        const javaPaths = stdout.trim().split('\n');
-                        
-                        // Check all found paths
-                        for (const javaPath of javaPaths) {
-                            if (await fs.pathExists(javaPath.trim())) {
-                                const version = await this.getJavaVersion(javaPath.trim());
-                                console.log(`[JAVA] PATH has Java ${version}: ${javaPath.trim()}`);
-                                
-                                if (version > bestVersion) {
-                                    bestPath = javaPath.trim();
-                                    bestVersion = version;
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        // Command not found, continue
-                    }
-                }
-            } else {
-                // Linux/Mac
-                try {
-                    const { stdout } = await execAsync('which java');
-                    const javaPath = stdout.trim();
-                    
-                    if (await fs.pathExists(javaPath)) {
-                        const version = await this.getJavaVersion(javaPath);
-                        console.log(`[JAVA] PATH has Java ${version}: ${javaPath}`);
-                        bestPath = javaPath;
-                        bestVersion = version;
-                    }
-                } catch (error) {
-                    // Command not found
-                }
-            }
-            
-            if (bestPath) {
-                console.log(`[JAVA] Best from PATH: Java ${bestVersion} at ${bestPath}`);
-            }
-            
-            return bestPath;
-        } catch (error) {
-            console.error('[JAVA] PATH check failed:', error.message);
-            return null;
-        }
-    }
-
-    /**
-     * Check JAVA_HOME environment variable
-     */
-    async checkJavaHome() {
-        try {
-            console.log('[JAVA] Checking JAVA_HOME...');
-            
-            const javaHome = process.env.JAVA_HOME;
-            if (!javaHome) {
-                return null;
-            }
-
-            const javaExe = process.platform === 'win32' 
-                ? path.join(javaHome, 'bin', 'javaw.exe')
-                : path.join(javaHome, 'bin', 'java');
-
-            if (await fs.pathExists(javaExe)) {
-                console.log('[JAVA] Found via JAVA_HOME:', javaExe);
-                return javaExe;
-            }
-
-            return null;
-        } catch (error) {
-            console.error('[JAVA] JAVA_HOME check failed:', error.message);
-            return null;
-        }
-    }
-
-    /**
-     * Check common Java installation paths
-     */
-    async checkCommonPaths() {
-        console.log('[JAVA] Checking common installation paths...');
-
-        const commonPaths = [];
-
+    getCommonJavaPaths() {
         if (process.platform === 'win32') {
-            // Windows common paths
-            const basePaths = [
+            return [
                 'C:\\Program Files\\Java',
                 'C:\\Program Files (x86)\\Java',
                 'C:\\Program Files\\Eclipse Adoptium',
-                'C:\\Program Files\\Eclipse Foundation',
-                'C:\\Program Files\\Microsoft',
+                'C:\\Program Files\\Microsoft\\jdk-11.0.12.7-hotspot',
+                'C:\\Program Files\\Microsoft\\jdk-17.0.2.8-hotspot',
+                'C:\\Program Files\\Microsoft\\jdk-21.0.1.12-hotspot',
+                'C:\\Program Files\\OpenJDK',
                 'C:\\Program Files\\Amazon Corretto',
-                'C:\\Program Files\\BellSoft',
-                'C:\\Program Files\\Zulu',
-                path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Java')
+                'C:\\Program Files\\Zulu'
             ];
-
-            for (const basePath of basePaths) {
-                if (await fs.pathExists(basePath)) {
-                    try {
-                        const entries = await fs.readdir(basePath);
-                        
-                        for (const entry of entries) {
-                            const javaPath = path.join(basePath, entry, 'bin', 'javaw.exe');
-                            if (await fs.pathExists(javaPath)) {
-                                commonPaths.push(javaPath);
-                            }
-                            
-                            const javaPath2 = path.join(basePath, entry, 'bin', 'java.exe');
-                            if (await fs.pathExists(javaPath2)) {
-                                commonPaths.push(javaPath2);
-                            }
-                        }
-                    } catch (error) {
-                        // Directory not accessible
-                    }
-                }
-            }
         } else if (process.platform === 'darwin') {
-            // macOS common paths
-            commonPaths.push(
-                '/Library/Java/JavaVirtualMachines/*/Contents/Home/bin/java',
-                '/System/Library/Frameworks/JavaVM.framework/Versions/Current/Commands/java'
-            );
+            return [
+                '/Library/Java/JavaVirtualMachines',
+                '/System/Library/Java/JavaVirtualMachines',
+                '/usr/lib/jvm',
+                '/opt/homebrew/Cellar/openjdk',
+                '/opt/homebrew/Cellar/temurin',
+                '/opt/homebrew/Cellar/amazon-corretto'
+            ];
         } else {
-            // Linux common paths
-            commonPaths.push(
-                '/usr/lib/jvm/*/bin/java',
-                '/usr/java/*/bin/java',
-                '/opt/java/*/bin/java'
-            );
+            return [
+                '/usr/lib/jvm',
+                '/usr/lib/java',
+                '/opt/java',
+                '/usr/local/java',
+                '/opt/openjdk',
+                '/opt/temurin',
+                '/opt/amazon-corretto'
+            ];
         }
-
-        // Check all paths and return the one with highest version
-        let bestPath = null;
-        let bestVersion = 0;
-        
-        console.log(`[JAVA] Scanning ${commonPaths.length} potential Java locations...`);
-        
-        for (const javaPath of commonPaths) {
-            if (await fs.pathExists(javaPath)) {
-                try {
-                    const version = await this.getJavaVersion(javaPath);
-                    console.log(`[JAVA] Found Java ${version} at: ${javaPath}`);
-                    
-                    if (version > bestVersion) {
-                        bestPath = javaPath;
-                        bestVersion = version;
-                    }
-                } catch (error) {
-                    // Can't get version, skip
-                }
-            }
-        }
-        
-        if (bestPath) {
-            console.log(`[JAVA] Best from common paths: Java ${bestVersion} at ${bestPath}`);
-        }
-
-        return bestPath;
     }
 
     /**
-     * Check Minecraft launcher's bundled Java
+     * Detect all Java installations
      */
-    async checkMinecraftLauncher() {
+    async detectJava() {
+        console.log('[JAVA] Detecting Java installations...');
+        const javas = [];
+        
+        // Check cache first
+        const cachedJavas = this.getCachedJavas();
+        if (cachedJavas.length > 0) {
+            console.log(`[JAVA] Found ${cachedJavas.length} cached Java installations`);
+            return cachedJavas;
+        }
+        
+        for (const basePath of this.commonPaths) {
+            try {
+                const javaPaths = await this.findJavaInPath(basePath);
+                for (const javaPath of javaPaths) {
+                    const javaInfo = await this.validateJava(javaPath);
+                    if (javaInfo) {
+                        javas.push(javaInfo);
+                        this.detectedJavas.set(javaPath, javaInfo);
+                        this.cacheJava(javaPath, javaInfo);
+                    }
+                }
+            } catch (error) {
+                console.warn(`[JAVA] Error scanning ${basePath}:`, error.message);
+            }
+        }
+        
+        console.log(`[JAVA] Found ${javas.length} Java installations`);
+        return javas;
+    }
+
+    /**
+     * Find Java executables in a directory
+     */
+    async findJavaInPath(basePath) {
+        const javaPaths = [];
+        
         try {
-            console.log('[JAVA] Checking Minecraft launcher Java...');
-
-            if (process.platform === 'win32') {
-                const mcLauncherPath = path.join(
-                    process.env.APPDATA || '',
-                    '.minecraft',
-                    'runtime'
-                );
-
-                if (await fs.pathExists(mcLauncherPath)) {
-                    const runtimes = await fs.readdir(mcLauncherPath);
-                    
-                    // Look for java-runtime-* directories
-                    for (const runtime of runtimes) {
-                        if (runtime.startsWith('java-runtime-')) {
-                            const javaPath = path.join(
-                                mcLauncherPath,
-                                runtime,
-                                'windows-x64',
-                                runtime,
-                                'bin',
-                                'javaw.exe'
-                            );
-
-                            if (await fs.pathExists(javaPath)) {
-                                console.log('[JAVA] Found Minecraft Java:', javaPath);
-                                return javaPath;
-                            }
-                        }
+            if (!fs.existsSync(basePath)) {
+                return javaPaths;
+            }
+            
+            const entries = await fs.readdir(basePath, { withFileTypes: true });
+            
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    const javaPath = this.findJavaExecutable(path.join(basePath, entry.name));
+                    if (javaPath) {
+                        javaPaths.push(javaPath);
                     }
                 }
             }
-
-            return null;
         } catch (error) {
-            console.error('[JAVA] Minecraft Java check failed:', error.message);
-            return null;
+            // Path doesn't exist or no permission
         }
+        
+        return javaPaths;
     }
 
     /**
-     * Download bundled Java using JavaRuntimeManager
+     * Find Java executable in a Java home directory
      */
-    async downloadBundledJava(minVersion = 17, minecraftVersion = null) {
-        try {
-            console.log(`[JAVA] Downloading bundled Java ${minVersion}...`);
-            const javaRuntimeManager = require('./JavaRuntimeManager');
-            
-            // If Minecraft version is provided, get best Java for it
-            if (minecraftVersion) {
-                return await javaRuntimeManager.getBestJavaForMinecraft(minecraftVersion);
+    findJavaExecutable(javaHome) {
+        const exeName = process.platform === 'win32' ? 'java.exe' : 'java';
+        const possiblePaths = [
+            path.join(javaHome, 'bin', exeName),
+            path.join(javaHome, 'jre', 'bin', exeName),
+            path.join(javaHome, 'Contents', 'Home', 'bin', exeName),
+            path.join(javaHome, 'jre', 'Contents', 'Home', 'bin', exeName)
+        ];
+        
+        for (const javaPath of possiblePaths) {
+            if (fs.existsSync(javaPath)) {
+                return javaPath;
             }
-            
-            // Otherwise, get requested version
-            return await javaRuntimeManager.getJavaRuntime(minVersion);
-        } catch (error) {
-            console.error('[JAVA] Bundled Java download failed:', error.message);
-            return null;
         }
-    }
-
-    /**
-     * Get Java version from executable
-     */
-    async getJavaVersion(javaPath) {
-        try {
-            // Run java -version (output goes to stderr!)
-            const { stdout, stderr } = await execAsync(`"${javaPath}" -version 2>&1`);
-            const output = (stderr || stdout || '').toString();
-            
-            console.log('[JAVA] Version output:', output.substring(0, 200));
-            
-            // Parse version from output
-            // Modern format: java version "17.0.1" or "21.0.1"
-            const versionMatch = output.match(/version "(\d+)\.(\d+)\.(\d+)/);
-            if (versionMatch) {
-                const majorVersion = parseInt(versionMatch[1]);
-                console.log('[JAVA] Parsed major version:', majorVersion);
-                return majorVersion;
-            }
-
-            // Java 9+ format: version "17" or "21"
-            const modernMatch = output.match(/version "(\d+)"/);
-            if (modernMatch) {
-                const majorVersion = parseInt(modernMatch[1]);
-                console.log('[JAVA] Parsed modern version:', majorVersion);
-                return majorVersion;
-            }
-
-            // Old format: java version "1.8.0_xxx"
-            const oldMatch = output.match(/version "1\.(\d+)\./);
-            if (oldMatch) {
-                const majorVersion = parseInt(oldMatch[1]);
-                console.log('[JAVA] Parsed old version (1.x format):', majorVersion);
-                return majorVersion;
-            }
-
-            console.warn('[JAVA] Could not parse version from:', output);
-            return 8; // Assume old version
-        } catch (error) {
-            console.error('[JAVA] Version check failed:', error.message);
-            return 0;
-        }
-    }
-
-    /**
-     * Get Java version info
-     */
-    async getJavaInfo(javaPath) {
-        try {
-            const { stdout, stderr } = await execAsync(`"${javaPath}" -version`);
-            const output = stderr + stdout;
-            
-            return {
-                version: await this.getJavaVersion(javaPath),
-                fullVersion: output.trim().split('\n')[0],
-                path: javaPath
-            };
-        } catch (error) {
-            console.error('[JAVA] Info check failed:', error.message);
-            return null;
-        }
-    }
-
-    /**
-     * Load persistent cache from disk
-     */
-    async loadPersistentCache() {
-        try {
-            const os = require('os');
-            const cacheFile = path.join(os.homedir(), '.blocksmiths', 'java-cache.json');
-            
-            if (await fs.pathExists(cacheFile)) {
-                const cache = await fs.readJSON(cacheFile);
-                
-                // Cache valid for 7 days
-                const cacheAge = Date.now() - (cache.timestamp || 0);
-                if (cacheAge < 7 * 24 * 3600 * 1000) {
-                    return cache;
-                } else {
-                    console.log('[JAVA] Persistent cache expired (>7 days old)');
-                }
-            }
-        } catch (error) {
-            console.error('[JAVA] Failed to load persistent cache:', error.message);
-        }
+        
         return null;
     }
 
     /**
-     * Save persistent cache to disk
-     */
-    async savePersistentCache(javaPath, version) {
-        try {
-            const os = require('os');
-            const cacheDir = path.join(os.homedir(), '.blocksmiths');
-            const cacheFile = path.join(cacheDir, 'java-cache.json');
-            
-            await fs.ensureDir(cacheDir);
-            await fs.writeJSON(cacheFile, {
-                javaPath: javaPath,
-                version: version,
-                timestamp: Date.now()
-            }, { spaces: 2 });
-            
-            console.log('[JAVA] Persistent cache saved');
-        } catch (error) {
-            console.error('[JAVA] Failed to save persistent cache:', error.message);
-        }
-    }
-
-    /**
-     * Clear cached Java path (force re-detection)
-     */
-    clearCache() {
-        this.cachedJavaPath = null;
-        this.javaVersion = null;
-        console.log('[JAVA] In-memory cache cleared');
-        
-        // Also clear persistent cache
-        try {
-            const os = require('os');
-            const cacheFile = path.join(os.homedir(), '.blocksmiths', 'java-cache.json');
-            fs.removeSync(cacheFile);
-            console.log('[JAVA] Persistent cache cleared');
-        } catch (error) {
-            // Ignore errors
-        }
-    }
-
-    /**
-     * Validate Java installation
+     * Validate Java installation and get info
      */
     async validateJava(javaPath) {
         try {
-            // Check if file exists
-            if (!await fs.pathExists(javaPath)) {
-                return false;
+            const result = await this.execJavaVersion(javaPath);
+            if (result.success) {
+                const javaInfo = {
+                    path: javaPath,
+                    version: result.version,
+                    majorVersion: result.majorVersion,
+                    architecture: result.architecture,
+                    valid: true,
+                    detectedAt: Date.now()
+                };
+                
+                console.log(`[JAVA] Validated Java ${result.version} at ${javaPath}`);
+                return javaInfo;
             }
-
-            // Try to run java -version
-            await execAsync(`"${javaPath}" -version`);
-            return true;
         } catch (error) {
-            return false;
+            console.warn(`[JAVA] Invalid Java at ${javaPath}:`, error.message);
         }
+        
+        return null;
+    }
+
+    /**
+     * Execute java -version and parse output
+     */
+    async execJavaVersion(javaPath) {
+        return new Promise((resolve) => {
+            const process = spawn(javaPath, ['-version'], { stdio: 'pipe' });
+            let stderr = '';
+            let stdout = '';
+            
+            process.stderr.on('data', (data) => {
+                stderr += data.toString();
+            });
+            
+            process.stdout.on('data', (data) => {
+                stdout += data.toString();
+            });
+            
+            process.on('close', (code) => {
+                if (code === 0) {
+                    const output = stderr || stdout;
+                    const versionMatch = output.match(/version "([^"]+)"/);
+                    if (versionMatch) {
+                        const version = versionMatch[1];
+                        const majorVersion = this.parseMajorVersion(version);
+                        const architecture = this.detectArchitecture(output);
+                        
+                        resolve({
+                            success: true,
+                            version,
+                            majorVersion,
+                            architecture
+                        });
+                    } else {
+                        resolve({ success: false });
+                    }
+                } else {
+                    resolve({ success: false });
+                }
+            });
+            
+            process.on('error', () => {
+                resolve({ success: false });
+            });
+        });
+    }
+
+    /**
+     * Parse major version from version string
+     */
+    parseMajorVersion(version) {
+        const parts = version.split('.');
+        if (parts[0] === '1') {
+            // Java 8 and earlier: 1.8.0 -> 8
+            return parseInt(parts[1]) || 8;
+        } else {
+            // Java 9+: 17.0.1 -> 17
+            return parseInt(parts[0]) || 17;
+        }
+    }
+
+    /**
+     * Detect Java architecture from version output
+     */
+    detectArchitecture(output) {
+        if (output.includes('64-Bit')) return 'x64';
+        if (output.includes('32-Bit')) return 'x32';
+        if (output.includes('aarch64')) return 'arm64';
+        if (output.includes('arm64')) return 'arm64';
+        if (output.includes('ARM64')) return 'arm64';
+        return 'x64'; // Default
+    }
+
+    /**
+     * Get best Java for Minecraft version
+     */
+    async getBestJava(minecraftVersion = '1.20.1') {
+        const javas = await this.detectJava();
+        if (javas.length === 0) {
+            return null;
+        }
+        
+        // Filter by architecture
+        const systemArch = process.arch;
+        const compatibleJavas = javas.filter(java => 
+            java.architecture === systemArch || java.architecture === 'x64'
+        );
+        
+        if (compatibleJavas.length === 0) {
+            return javas[0]; // Fallback to any Java
+        }
+        
+        // Prefer Java 17+ for modern versions
+        const modernJavas = compatibleJavas.filter(java => java.majorVersion >= 17);
+        if (modernJavas.length > 0) {
+            // Sort by version (newest first)
+            modernJavas.sort((a, b) => b.majorVersion - a.majorVersion);
+            return modernJavas[0];
+        }
+        
+        // Fallback to highest version
+        compatibleJavas.sort((a, b) => b.majorVersion - a.majorVersion);
+        return compatibleJavas[0];
+    }
+
+    /**
+     * Cache Java information
+     */
+    cacheJava(javaPath, javaInfo) {
+        this.cache.set(javaPath, {
+            ...javaInfo,
+            cachedAt: Date.now()
+        });
+    }
+
+    /**
+     * Get cached Java installations
+     */
+    getCachedJavas() {
+        const now = Date.now();
+        const cachedJavas = [];
+        
+        for (const [javaPath, javaInfo] of this.cache.entries()) {
+            if (now - javaInfo.cachedAt < this.cacheTimeout) {
+                cachedJavas.push(javaInfo);
+            } else {
+                this.cache.delete(javaPath);
+            }
+        }
+        
+        return cachedJavas;
+    }
+
+    /**
+     * Clear cache
+     */
+    clearCache() {
+        this.cache.clear();
+        this.detectedJavas.clear();
+        console.log('[JAVA] Cache cleared');
+    }
+
+    /**
+     * Get Java statistics
+     */
+    getStats() {
+        return {
+            cachedJavas: this.cache.size,
+            detectedJavas: this.detectedJavas.size,
+            commonPaths: this.commonPaths.length
+        };
     }
 }
 
-// Singleton instance
-const javaDetector = new JavaDetector();
-
-module.exports = javaDetector;
-
+module.exports = JavaDetector;

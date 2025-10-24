@@ -341,7 +341,7 @@ class MinecraftLauncher {
     }
 
     /**
-     * Launch vanilla Minecraft using optimized VanillaLauncher
+     * Launch vanilla Minecraft using enhanced VanillaLauncher
      */
     async launchVanillaMinecraft(options) {
         // MUTEX: Prevent concurrent launches
@@ -356,7 +356,7 @@ class MinecraftLauncher {
             console.log('[VANILLA-LAUNCHER] 🔒 Launch mutex acquired');
             console.log('[VANILLA-LAUNCHER] Options received:', JSON.stringify(options, null, 2));
 
-            // CRITICAL: Extract and validate all parameters
+            // Extract and validate parameters
             const version = options.version || options.gameVersion || '1.20.4';
             const username = options.username || options.playerName || 'Player';
             const javaPath = options.javaPath || null;
@@ -375,21 +375,7 @@ class MinecraftLauncher {
                 minMemory
             });
 
-            // Get current profile from options or create one
-            const profile = options.profile || {
-                name: username,
-                username: username,
-                uuid: this.generateOfflineUUID(username)
-            };
-
-            // AUTO-OPTIMIZE JAVA ARGUMENTS
-            const javaOpts = javaOptimizer.getOptimalArgs({
-                minecraftVersion: version,
-                modloader: 'vanilla',
-                modCount: 0
-            });
-
-            // CRITICAL: Parse memory correctly (handle '4G', '4096M', or raw numbers)
+            // Parse memory correctly
             const parseMemory = (memStr) => {
                 if (!memStr) return null;
                 if (typeof memStr === 'number') return memStr;
@@ -404,11 +390,29 @@ class MinecraftLauncher {
                 }
             };
 
-            const optimizedMaxMemory = parseMemory(maxMemory) || parseInt(javaOpts.maxMemory.replace('G', '')) * 1024;
-            const optimizedMinMemory = parseMemory(minMemory) || parseInt(javaOpts.minMemory.replace('G', '')) * 1024;
+            const optimizedMaxMemory = parseMemory(maxMemory) || 2048;
+            const optimizedMinMemory = parseMemory(minMemory) || 1024;
 
-            console.log(`[VANILLA-LAUNCHER] Raw memory input: maxMemory='${maxMemory}', minMemory='${minMemory}'`);
-            console.log(`[VANILLA-LAUNCHER] Parsed memory: ${optimizedMinMemory}MB - ${optimizedMaxMemory}MB`);
+            console.log(`[VANILLA-LAUNCHER] Memory: ${optimizedMinMemory}MB - ${optimizedMaxMemory}MB`);
+
+            // Get current profile from options or create one
+            const profile = options.profile || {
+                name: username,
+                username: username,
+                uuid: this.generateOfflineUUID(username)
+            };
+
+            console.log('[VANILLA-LAUNCHER] Profile:', profile);
+
+            // AUTO-OPTIMIZE JAVA ARGUMENTS
+            const javaOpts = javaOptimizer.getOptimalArgs({
+                minecraftVersion: version,
+                modloader: 'vanilla',
+                modCount: 0
+            });
+
+            console.log(`[JAVA-OPT] Using optimized memory: ${javaOpts.minMemory} - ${javaOpts.maxMemory}`);
+            console.log(`[JAVA-OPT] JVM Args:`, javaOpts.jvmArgs.length, 'arguments');
 
             // Initialize GameStateManager
             await this.gameStateManager.startLaunch({
@@ -428,12 +432,9 @@ class MinecraftLauncher {
                 });
             };
 
-            // CRITICAL: Validate VanillaLauncher before launch
-            if (!this.vanillaLauncher) {
-                throw new Error('VanillaLauncher not initialized');
-            }
-
-            console.log('[VANILLA-LAUNCHER] Preparing launch options...');
+            // Use existing VanillaLauncher (the working one)
+            console.log('[VANILLA-LAUNCHER] Using existing VanillaLauncher system...');
+            
             const vanillaOptions = {
                 profile: profile,
                 version: version,
@@ -444,12 +445,12 @@ class MinecraftLauncher {
                 windowWidth: windowWidth,
                 windowHeight: windowHeight,
                 fullscreen: fullscreen,
-                server: null // Can be added later
+                server: null
             };
 
             console.log('[VANILLA-LAUNCHER] Launch options:', JSON.stringify(vanillaOptions, null, 2));
 
-            // Launch using VanillaLauncher
+            // Launch using existing VanillaLauncher
             const result = await this.vanillaLauncher.launch(vanillaOptions, sendProgress);
 
             if (result.success && result.process) {
@@ -457,7 +458,7 @@ class MinecraftLauncher {
                 this.currentLauncher = result.process;
                 this.gameProcess = result.process;
 
-                // CRITICAL: Register process with GameStateManager FIRST
+                // Register process with GameStateManager
                 console.log('[VANILLA-LAUNCHER] Registering process with GameStateManager...');
                 this.gameStateManager.registerProcess(result.process, result.process.pid);
 
@@ -481,7 +482,6 @@ class MinecraftLauncher {
 
                 console.log('[VANILLA-LAUNCHER] ✅ Vanilla Minecraft launched successfully');
                 
-                // Return serializable data only (no ChildProcess object!)
                 return { 
                     success: true, 
                     pid: result.process.pid,
@@ -684,7 +684,13 @@ class MinecraftLauncher {
                 const settings = await fsx.readJson(pathx.join(userDataPath, 'settings.json')).catch(() => ({ minMemoryGB: 2, maxMemoryGB: 4 }));
 
                 // Auto-detect Java if not provided (with Minecraft version for smart selection)
-                const resolvedJavaPath = javaPath || await javaDetector.getJavaPath(17, baseMc);
+                let resolvedJavaPath = javaPath;
+                if (!resolvedJavaPath) {
+                    const JavaDetector = require('../utils/JavaDetector');
+                    const detector = new JavaDetector();
+                    const bestJava = await detector.getBestJava(baseMc);
+                    resolvedJavaPath = bestJava ? bestJava.path : 'java';
+                }
                 console.log(`[FORGE/NEOFORGE] Using Java: ${resolvedJavaPath}`);
                 
                 const result = await launcherFn({
@@ -707,7 +713,13 @@ class MinecraftLauncher {
                 const forgeVersion = modLoader === 'forge' ? modLoaderVersion : false;
                 
                 // Auto-detect Java if not provided (with Minecraft version for smart selection)
-                const resolvedJavaPath = javaPath || await javaDetector.getJavaPath(17, actualVersion);
+                let resolvedJavaPath = javaPath;
+                if (!resolvedJavaPath) {
+                    const JavaDetector = require('../utils/JavaDetector');
+                    const detector = new JavaDetector();
+                    const bestJava = await detector.getBestJava(actualVersion);
+                    resolvedJavaPath = bestJava ? bestJava.path : 'java';
+                }
                 console.log(`[LAUNCHER] Using Java: ${resolvedJavaPath}`);
                 
                 launchOptions = {
@@ -3316,6 +3328,28 @@ class MinecraftLauncher {
         }
         
         return null; // Use system default
+    }
+
+    /**
+     * Get best Java path using enhanced JavaDetector
+     */
+    async getBestJavaPath() {
+        try {
+            const JavaDetector = require('../utils/JavaDetector');
+            const javaDetector = new JavaDetector();
+            
+            const bestJava = await javaDetector.getBestJava('1.20.1');
+            if (bestJava) {
+                console.log(`[JAVA] Using best Java: ${bestJava.version} at ${bestJava.path}`);
+                return bestJava.path;
+            }
+            
+            console.log('[JAVA] No suitable Java found, using system default');
+            return 'java'; // Fallback to system PATH
+        } catch (error) {
+            console.error('[JAVA] Error detecting Java:', error);
+            return 'java'; // Fallback to system PATH
+        }
     }
 
 }
