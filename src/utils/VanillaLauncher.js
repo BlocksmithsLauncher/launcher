@@ -5,6 +5,12 @@ const { spawn } = require('child_process');
 const fetch = require('node-fetch');
 const extract = require('extract-zip');
 const crypto = require('crypto');
+const EventEmitter = require('events');
+
+// Import error handling systems
+const CrashManager = require('./CrashManager');
+const ErrorReporter = require('./ErrorReporter');
+const RecoveryManager = require('./RecoveryManager');
 
 /**
  * VANILLA MINECRAFT LAUNCHER
@@ -15,10 +21,13 @@ const crypto = require('crypto');
  * - Direct Java spawn ile %100 kontrol
  * - Robust asset download (SHA1 validation, retry, concurrency control)
  * - Her launch'ta asset validation
+ * - Advanced error handling and crash recovery
  * - Basit ve hızlı
  */
-class VanillaLauncher {
+class VanillaLauncher extends EventEmitter {
     constructor(gameDirectory) {
+        super();
+        
         // CRITICAL: Ensure gameDirectory is valid
         if (!gameDirectory || typeof gameDirectory !== 'string') {
             gameDirectory = path.join(os.homedir(), '.blocksmiths', 'minecraft');
@@ -31,58 +40,107 @@ class VanillaLauncher {
         this.assetsDir = path.join(this.gameDirectory, 'assets');
         this.nativesDir = null; // Will be set per version
         
+        // Initialize error handling systems
+        this.crashManager = new CrashManager(gameDirectory);
+        this.errorReporter = new ErrorReporter(gameDirectory);
+        this.recoveryManager = new RecoveryManager(gameDirectory);
+        
+        // Setup error handling event listeners
+        this.setupErrorHandling();
+        
         console.log('[VANILLA] Initialized with game directory:', this.gameDirectory);
         console.log('[VANILLA] Versions directory:', this.versionsDir);
         console.log('[VANILLA] Libraries directory:', this.librariesDir);
         console.log('[VANILLA] Assets directory:', this.assetsDir);
+        console.log('[VANILLA] Error handling systems initialized');
+    }
+
+    /**
+     * Setup error handling event listeners
+     */
+    setupErrorHandling() {
+        // Crash manager events
+        this.crashManager.on('crash', (crashInfo) => {
+            console.error('[VANILLA] Crash detected:', crashInfo.message);
+            this.emit('crash', crashInfo);
+        });
+
+        this.crashManager.on('frequentCrashes', (crashInfo) => {
+            console.error('[VANILLA] Frequent crashes detected:', crashInfo.message);
+            this.emit('frequentCrashes', crashInfo);
+        });
+
+        // Error reporter events
+        this.errorReporter.on('criticalError', (errorInfo) => {
+            console.error('[VANILLA] Critical error:', errorInfo.message);
+            this.emit('criticalError', errorInfo);
+        });
+
+        this.errorReporter.on('errorReport', (errorInfo) => {
+            console.warn('[VANILLA] Error reported:', errorInfo.message);
+            this.emit('errorReport', errorInfo);
+        });
+
+        // Recovery manager events
+        this.recoveryManager.on('recoverySuccess', (recoveryInfo) => {
+            console.log('[VANILLA] Recovery successful:', recoveryInfo.result.message);
+            this.emit('recoverySuccess', recoveryInfo);
+        });
+
+        this.recoveryManager.on('recoveryFailed', (recoveryInfo) => {
+            console.warn('[VANILLA] Recovery failed:', recoveryInfo.result.reason);
+            this.emit('recoveryFailed', recoveryInfo);
+        });
     }
 
     /**
      * Launch vanilla Minecraft
      */
     async launch(options, sendProgress = null) {
-        // CRITICAL: Validate options
-        if (!options) {
-            throw new Error('[VANILLA] Launch options are required');
-        }
-
-        console.log('[VANILLA] Launch called with options:', JSON.stringify(options, null, 2));
-
-        // Extract parameters with comprehensive fallbacks
-        const profile = options.profile;
-        const version = options.version || '1.20.4';
-        const memory = options.memory || 4096;
-        const minMemory = options.minMemory || 2048;
-        const javaPath = options.javaPath || null;
-        const javaArgs = options.javaArgs || [];
-        const windowWidth = options.windowWidth || 1280;
-        const windowHeight = options.windowHeight || 720;
-        const fullscreen = options.fullscreen || false;
-        const server = options.server || null;
-
-        // CRITICAL: Validate required parameters with detailed logging
-        console.log('[VANILLA] Validating parameters...');
-        console.log('[VANILLA] Profile:', profile);
-        console.log('[VANILLA] Version:', version);
-        console.log('[VANILLA] Memory:', memory);
-        console.log('[VANILLA] Game Directory:', this.gameDirectory);
-        
-        if (!profile) {
-            throw new Error('[VANILLA] Profile is required. Received: ' + JSON.stringify(profile));
-        }
-        if (!version || typeof version !== 'string') {
-            throw new Error('[VANILLA] Valid version string is required. Received: ' + version + ' (type: ' + typeof version + ')');
-        }
-        if (!profile.name && !profile.username) {
-            throw new Error('[VANILLA] Profile must have a name or username. Profile: ' + JSON.stringify(profile));
-        }
-        if (!this.gameDirectory || typeof this.gameDirectory !== 'string') {
-            throw new Error('[VANILLA] Invalid gameDirectory: ' + this.gameDirectory);
-        }
-
-        console.log('[VANILLA] ✅ All parameters validated successfully');
-
         try {
+            // CRITICAL: Validate options
+            if (!options) {
+                const error = new Error('[VANILLA] Launch options are required');
+                await this.errorReporter.reportError(error, { context: 'launch_validation' });
+                throw error;
+            }
+
+            console.log('[VANILLA] Launch called with options:', JSON.stringify(options, null, 2));
+
+            // Extract parameters with comprehensive fallbacks
+            const profile = options.profile;
+            const version = options.version || '1.20.4';
+            const memory = options.memory || 4096;
+            const minMemory = options.minMemory || 2048;
+            const javaPath = options.javaPath || null;
+            const javaArgs = options.javaArgs || [];
+            const windowWidth = options.windowWidth || 1280;
+            const windowHeight = options.windowHeight || 720;
+            const fullscreen = options.fullscreen || false;
+            const server = options.server || null;
+
+            // CRITICAL: Validate required parameters with detailed logging
+            console.log('[VANILLA] Validating parameters...');
+            console.log('[VANILLA] Profile:', profile);
+            console.log('[VANILLA] Version:', version);
+            console.log('[VANILLA] Memory:', memory);
+            console.log('[VANILLA] Game Directory:', this.gameDirectory);
+            
+            if (!profile) {
+                throw new Error('[VANILLA] Profile is required. Received: ' + JSON.stringify(profile));
+            }
+            if (!version || typeof version !== 'string') {
+                throw new Error('[VANILLA] Valid version string is required. Received: ' + version + ' (type: ' + typeof version + ')');
+            }
+            if (!profile.name && !profile.username) {
+                throw new Error('[VANILLA] Profile must have a name or username. Profile: ' + JSON.stringify(profile));
+            }
+            if (!this.gameDirectory || typeof this.gameDirectory !== 'string') {
+                throw new Error('[VANILLA] Invalid gameDirectory: ' + this.gameDirectory);
+            }
+
+            console.log('[VANILLA] ✅ All parameters validated successfully');
+
             console.log('[VANILLA] 🚀 Starting vanilla Minecraft launch...');
             console.log('[VANILLA] Version:', version);
             console.log('[VANILLA] Player:', profile.name || profile.username);
@@ -237,6 +295,30 @@ class VanillaLauncher {
 
         } catch (error) {
             console.error('[VANILLA] ❌ Launch failed:', error);
+            
+            // Report error
+            await this.errorReporter.reportError(error, { 
+                context: 'vanilla_launch',
+                options: options,
+                version: options?.version
+            });
+            
+            // Attempt recovery
+            const recoveryResult = await this.recoveryManager.attemptRecovery(error, {
+                context: 'vanilla_launch',
+                options: options,
+                version: options?.version
+            });
+            
+            if (recoveryResult.success) {
+                console.log('[VANILLA] Recovery successful, retrying launch...');
+                // Retry launch with recovery suggestions
+                return await this.launch({
+                    ...options,
+                    ...recoveryResult
+                }, sendProgress);
+            }
+            
             throw error;
         }
     }
@@ -723,95 +805,145 @@ class VanillaLauncher {
      * Launch Minecraft process
      */
     async launchMinecraft(javaPath, args) {
-        console.log('[VANILLA] Launching Minecraft...');
-        console.log('[VANILLA] Java:', javaPath);
-        console.log('[VANILLA] Args:', args.length, 'arguments');
-        
-        // CRITICAL: Verify Java exists before launching
-        if (!await fs.pathExists(javaPath)) {
-            throw new Error(`Java executable not found at: ${javaPath}`);
-        }
-
-        return new Promise((resolve, reject) => {
-            let launched = false;
-            let stderrBuffer = [];
+        try {
+            console.log('[VANILLA] Launching Minecraft...');
+            console.log('[VANILLA] Java:', javaPath);
+            console.log('[VANILLA] Args:', args.length, 'arguments');
             
-            console.log('[VANILLA] Spawning Java process...');
-            
-            const process = spawn(javaPath, args, {
-                cwd: this.gameDirectory,
-                stdio: ['ignore', 'pipe', 'pipe'],
-                detached: false
-            });
-            
-            console.log('[VANILLA] Process spawned with PID:', process.pid);
+            // CRITICAL: Verify Java exists before launching
+            if (!await fs.pathExists(javaPath)) {
+                const error = new Error(`Java executable not found at: ${javaPath}`);
+                await this.errorReporter.reportError(error, { 
+                    context: 'java_validation',
+                    javaPath: javaPath
+                });
+                throw error;
+            }
 
-            process.stdout.on('data', (data) => {
-                const output = data.toString();
-                console.log('[MINECRAFT-STDOUT]', output.trim());
-
-                if (!launched && output.includes('Setting user:')) {
-                    launched = true;
-                    console.log('[VANILLA] ✅ Minecraft launched successfully!');
-                    resolve(process);
-                }
-            });
-
-            process.stderr.on('data', (data) => {
-                const error = data.toString();
-                stderrBuffer.push(error);
-                console.error('[MINECRAFT-STDERR]', error.trim());
+            return new Promise((resolve, reject) => {
+                let launched = false;
+                let stderrBuffer = [];
                 
-                // Check for critical Java errors
-                if (error.includes('Could not create the Java Virtual Machine') ||
-                    error.includes('A fatal exception has occurred') ||
-                    error.includes('java.lang.OutOfMemoryError') ||
-                    error.includes('Error: Invalid or corrupt jarfile')) {
-                    console.error('[VANILLA] ❌ CRITICAL JAVA ERROR DETECTED!');
-                    console.error('[VANILLA] Full stderr output:', stderrBuffer.join('\n'));
-                }
-            });
+                console.log('[VANILLA] Spawning Java process...');
+                
+                const minecraftProcess = spawn(javaPath, args, {
+                    cwd: this.gameDirectory,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    detached: false
+                });
+                
+                console.log('[VANILLA] Process spawned with PID:', minecraftProcess.pid);
+                
+                // Start crash monitoring
+                this.crashManager.startMonitoring(minecraftProcess);
 
-            process.on('error', (error) => {
-                console.error('[VANILLA] Process spawn error:', error);
-                console.error('[VANILLA] Java path:', javaPath);
-                console.error('[VANILLA] Working directory:', this.gameDirectory);
-                reject(new Error(`Failed to spawn Java process: ${error.message}`));
-            });
+                minecraftProcess.stdout.on('data', (data) => {
+                    const output = data.toString();
+                    console.log('[MINECRAFT-STDOUT]', output.trim());
 
-            process.on('exit', (code, signal) => {
-                console.log(`[VANILLA] Process exited: code=${code}, signal=${signal}`);
-                if (!launched) {
-                    const stderrOutput = stderrBuffer.join('\n');
-                    console.error('[VANILLA] ❌ Minecraft failed to start!');
-                    console.error('[VANILLA] Exit code:', code);
-                    console.error('[VANILLA] Stderr output:', stderrOutput);
-                    
-                    let errorMessage = `Minecraft failed to start (exit code: ${code})`;
-                    if (stderrOutput) {
-                        errorMessage += `\n\nJava Error:\n${stderrOutput}`;
+                    if (!launched && output.includes('Setting user:')) {
+                        launched = true;
+                        console.log('[VANILLA] ✅ Minecraft launched successfully!');
+                        resolve(minecraftProcess);
                     }
-                    reject(new Error(errorMessage));
-                }
-            });
+                });
 
-            // Timeout after 60 seconds (increased from 30)
-            const timeoutId = setTimeout(() => {
-                if (!launched) {
-                    console.error('[VANILLA] ❌ Launch timeout after 60 seconds');
-                    console.error('[VANILLA] Stderr output:', stderrBuffer.join('\n'));
-                    process.kill();
-                    reject(new Error('Minecraft launch timeout (60s). Check logs for details.'));
-                }
-            }, 60000);
-            
-            // Clear timeout if launched successfully
-            process.on('spawn', () => {
-                if (launched) {
-                    clearTimeout(timeoutId);
-                }
+                minecraftProcess.stderr.on('data', (data) => {
+                    const error = data.toString();
+                    stderrBuffer.push(error);
+                    console.error('[MINECRAFT-STDERR]', error.trim());
+                    
+                    // Report stderr errors (async but don't await)
+                    this.errorReporter.reportError(new Error(`Minecraft stderr: ${error.trim()}`), {
+                        context: 'minecraft_stderr',
+                        javaPath: javaPath,
+                        stderr: error.trim()
+                    }).catch(err => console.error('[VANILLA] Error reporting failed:', err));
+                });
+
+                minecraftProcess.on('error', (error) => {
+                    console.error('[VANILLA] Process spawn error:', error);
+                    console.error('[VANILLA] Java path:', javaPath);
+                    console.error('[VANILLA] Working directory:', this.gameDirectory);
+                    
+                    // Report error (async but don't await)
+                    this.errorReporter.reportError(error, {
+                        context: 'process_spawn_error',
+                        javaPath: javaPath,
+                        gameDirectory: this.gameDirectory
+                    }).catch(err => console.error('[VANILLA] Error reporting failed:', err));
+                    
+                    reject(new Error(`Failed to spawn Java process: ${error.message}`));
+                });
+
+                minecraftProcess.on('exit', (code, signal) => {
+                    console.log(`[VANILLA] Process exited: code=${code}, signal=${signal}`);
+                    
+                    // Stop crash monitoring
+                    this.crashManager.stopMonitoring();
+                    
+                    if (!launched) {
+                        const stderrOutput = stderrBuffer.join('\n');
+                        console.error('[VANILLA] ❌ Minecraft failed to start!');
+                        console.error('[VANILLA] Exit code:', code);
+                        console.error('[VANILLA] Stderr output:', stderrOutput);
+                        
+                        // Report error (async but don't await)
+                        const error = new Error(`Minecraft failed to start (exit code: ${code})`);
+                        this.errorReporter.reportError(error, {
+                            context: 'minecraft_startup_failed',
+                            exitCode: code,
+                            signal: signal,
+                            stderr: stderrOutput,
+                            javaPath: javaPath
+                        }).catch(err => console.error('[VANILLA] Error reporting failed:', err));
+                        
+                        let errorMessage = `Minecraft failed to start (exit code: ${code})`;
+                        if (stderrOutput) {
+                            errorMessage += `\n\nJava Error:\n${stderrOutput}`;
+                        }
+                        reject(new Error(errorMessage));
+                    }
+                });
+
+                // Timeout after 60 seconds (increased from 30)
+                const timeoutId = setTimeout(() => {
+                    if (!launched) {
+                        console.error('[VANILLA] ❌ Launch timeout after 60 seconds');
+                        console.error('[VANILLA] Stderr output:', stderrBuffer.join('\n'));
+                        
+                        // Report timeout error (async but don't await)
+                        const error = new Error('Minecraft launch timeout (60s)');
+                        this.errorReporter.reportError(error, {
+                            context: 'launch_timeout',
+                            stderr: stderrBuffer.join('\n'),
+                            javaPath: javaPath
+                        }).catch(err => console.error('[VANILLA] Error reporting failed:', err));
+                        
+                        minecraftProcess.kill();
+                        reject(new Error('Minecraft launch timeout (60s). Check logs for details.'));
+                    }
+                }, 60000);
+                
+                // Clear timeout if launched successfully
+                minecraftProcess.on('spawn', () => {
+                    if (launched) {
+                        clearTimeout(timeoutId);
+                    }
+                });
             });
-        });
+        } catch (error) {
+            console.error('[VANILLA] ❌ launchMinecraft failed:', error);
+            
+            // Report error
+            await this.errorReporter.reportError(error, {
+                context: 'launchMinecraft_error',
+                javaPath: javaPath,
+                args: args
+            });
+            
+            throw error;
+        }
     }
 
     /**
@@ -923,6 +1055,33 @@ class VanillaLauncher {
             return 'linux';
         }
         return 'windows'; // fallback
+    }
+
+    /**
+     * Cleanup and destroy launcher
+     */
+    destroy() {
+        console.log('[VANILLA] Cleaning up VanillaLauncher...');
+        
+        // Stop crash monitoring
+        if (this.crashManager) {
+            this.crashManager.destroy();
+        }
+        
+        // Cleanup error reporter
+        if (this.errorReporter) {
+            this.errorReporter.destroy();
+        }
+        
+        // Cleanup recovery manager
+        if (this.recoveryManager) {
+            this.recoveryManager.destroy();
+        }
+        
+        // Remove all event listeners
+        this.removeAllListeners();
+        
+        console.log('[VANILLA] ✅ VanillaLauncher cleanup complete');
     }
 }
 
