@@ -12,10 +12,24 @@
     "build:win": "npm run obfuscate && electron-builder --win",
     "build:win-debug": "electron-builder --win",
     "build:mac": "npm run obfuscate && electron-builder --mac",
+    "build:mac-dmg": "npm run obfuscate && electron-builder --mac --config.mac.target=dmg",
+    "build:mac-pkg": "npm run obfuscate && electron-builder --mac --config.mac.target=pkg",
+    "build:mac-zip": "npm run obfuscate && electron-builder --mac --config.mac.target=zip",
     "build:linux": "npm run obfuscate && electron-builder --linux",
+    "build:linux-appimage": "npm run obfuscate && electron-builder --linux --config.linux.target=AppImage",
+    "build:linux-deb": "npm run obfuscate && electron-builder --linux --config.linux.target=deb",
+    "build:linux-rpm": "npm run obfuscate && electron-builder --linux --config.linux.target=rpm",
+    "build:linux-pacman": "npm run obfuscate && electron-builder --linux --config.linux.target=pacman",
+    "build:linux-tar": "npm run obfuscate && electron-builder --linux --config.linux.target=tar.gz",
+    "build:linux-all": "npm run obfuscate && electron-builder --linux --x64 --arm64",
+    "build:mac-all": "npm run obfuscate && electron-builder --mac --x64 --arm64",
+    "build:all": "npm run obfuscate && electron-builder --win --mac --linux --x64 --arm64",
     "build:no-obfuscate": "electron-builder",
     "pack": "electron-builder --dir",
-    "pack:all": "electron-builder --dir --win --mac --linux"
+    "pack:all": "electron-builder --dir --win --mac --linux",
+    "dist:linux": "npm run build:linux-all",
+    "dist:mac": "npm run build:mac-all",
+    "dist:all": "npm run build:all"
   },
   "keywords": [
     "minecraft",
@@ -115,28 +129,131 @@
             "x64",
             "arm64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "pkg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/icons/icon.icns",
-      "category": "public.app-category.games"
+      "category": "public.app-category.games",
+      "bundleVersion": "1.0.0",
+      "buildVersion": "1.0.0",
+      "minimumSystemVersion": "10.15.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": {
+        "teamId": "YOUR_TEAM_ID"
+      },
+      "dmg": {
+        "title": "Blocksmiths Launcher",
+        "icon": "assets/icons/icon.icns",
+        "background": "assets/icons/dmg-background.png",
+        "contents": [
+          {
+            "x": 130,
+            "y": 220
+          },
+          {
+            "x": 410,
+            "y": 220,
+            "type": "link",
+            "path": "/Applications"
+          }
+        ],
+        "window": {
+          "width": 540,
+          "height": 380
+        }
+      },
+      "pkg": {
+        "allowAnywhere": false,
+        "allowCurrentUserHome": false,
+        "allowRootDirectory": false,
+        "installLocation": "/Applications",
+        "welcome": "build/welcome.html",
+        "conclusion": "build/conclusion.html",
+        "background": "assets/icons/pkg-background.png"
+      }
     },
     "linux": {
       "target": [
         {
           "target": "AppImage",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
           ]
         },
         {
           "target": "deb",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "pacman",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64",
+            "arm64"
           ]
         }
       ],
       "icon": "assets/icons/icon.png",
-      "category": "Game"
+      "category": "Game",
+      "executableName": "blocksmiths-launcher",
+      "synopsis": "Modern Minecraft Launcher",
+      "description": "A modern, feature-rich Minecraft launcher with mod support and cross-platform compatibility.",
+      "maintainer": "Blocksmiths Team <support@blocksmithslauncher.com>",
+      "homepage": "https://blocksmithslauncher.com",
+      "license": "MIT",
+      "desktop": {
+        "Name": "Blocksmiths Launcher",
+        "Comment": "Modern Minecraft Launcher",
+        "Keywords": "minecraft;launcher;gaming;mods;",
+        "StartupWMClass": "blocksmiths-launcher",
+        "MimeType": "application/x-minecraft-modpack;"
+      },
+      "files": [
+        "**/*",
+        "!**/*.map",
+        "!**/node_modules/**/*.{d.ts,map}",
+        "!**/node_modules/.bin",
+        "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+        "!.editorconfig",
+        "!**/._*",
+        "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+        "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+        "!**/{appveyor.yml,.travis.yml,circle.yml}",
+        "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+      ]
     },
     "nsis": {
       "oneClick": false,

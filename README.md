@@ -560,31 +560,82 @@ npm start
 
 ### Production Build
 
+#### All Platforms
 ```bash
-# Build for current platform
-npm run build
-
-# Build for Windows
-npm run build:win
-
-# Build for macOS
-npm run build:mac
-
-# Build for Linux
-npm run build:linux
-
 # Build for all platforms
 npm run build:all
+
+# Or use the build script
+./scripts/build-all.sh
 ```
 
-### Output
+#### Platform-Specific Builds
 
+**Windows:**
+```bash
+npm run build:win
 ```
-dist/
-├── Blocksmiths Launcher Setup-1.2.1-public.exe  # Windows installer
-├── Blocksmiths Launcher-1.2.1-public.dmg        # macOS disk image
-└── Blocksmiths Launcher-1.2.1-public.AppImage   # Linux AppImage
+
+**macOS:**
+```bash
+# All macOS formats
+npm run build:mac-all
+
+# Specific formats
+npm run build:mac-dmg    # DMG installer
+npm run build:mac-pkg    # PKG installer  
+npm run build:mac-zip    # ZIP archive
+
+# Or use the build script
+./scripts/build-mac.sh
 ```
+
+**Linux:**
+```bash
+# All Linux formats
+npm run build:linux-all
+
+# Specific formats
+npm run build:linux-appimage  # AppImage
+npm run build:linux-deb       # DEB packages
+npm run build:linux-rpm       # RPM packages
+npm run build:linux-pacman    # Arch Linux (Pacman)
+npm run build:linux-tar       # Tar.gz archives
+
+# Or use the build script
+./scripts/build-linux.sh
+```
+
+### Build Outputs
+
+The build process creates packages for multiple architectures and formats:
+
+**Windows:**
+- `Blocksmiths Launcher Setup 1.2.1.exe` (NSIS installer)
+
+**macOS:**
+- `Blocksmiths Launcher-1.2.1.dmg` (DMG installer)
+- `Blocksmiths Launcher-1.2.1.pkg` (PKG installer)
+- `Blocksmiths Launcher-1.2.1-mac.zip` (ZIP archive)
+
+**Linux:**
+- `Blocksmiths Launcher-1.2.1.AppImage` (AppImage)
+- `blocksmiths-launcher_1.2.1_amd64.deb` (Debian/Ubuntu)
+- `blocksmiths-launcher-1.2.1-1.x86_64.rpm` (Red Hat/Fedora)
+- `blocksmiths-launcher-1.2.1-1-x86_64.pkg.tar.zst` (Arch Linux)
+- `Blocksmiths Launcher-1.2.1-linux.tar.gz` (Generic Linux)
+
+### GitHub Actions
+
+Automated builds are available via GitHub Actions:
+- **Linux**: AppImage, DEB, RPM, Pacman, Tar.gz
+- **macOS**: DMG, PKG, ZIP  
+- **Windows**: NSIS installer
+
+Builds are triggered on:
+- Tag pushes (`v*`)
+- Pull requests to main
+- Manual workflow dispatch
 
 ---
 
