@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     installVersion: (version) => ipcRenderer.invoke('install-version', version),
     getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
     authenticateMicrosoft: () => ipcRenderer.invoke('authenticate-microsoft'),
+    checkAndInstallJava: () => ipcRenderer.invoke('check-and-install-java'),
     
     // Mod Management
     searchMods: (query, gameVersion, modLoader, limit) => ipcRenderer.invoke('search-mods', query, gameVersion, modLoader, limit),
@@ -60,6 +61,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     onGameStateChanged: (callback) => {
         ipcRenderer.on('game-state-changed', (event, state) => callback(state));
+    },
+    onJavaInstallProgress: (callback) => {
+        ipcRenderer.on('java-install-progress', (event, progress) => callback(progress));
     },
 
     // Send events
