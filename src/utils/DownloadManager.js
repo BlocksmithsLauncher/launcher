@@ -19,11 +19,17 @@ class DownloadManager {
         // Active downloads tracking
         this.activeDownloads = new Set();
         
+        // Concurrent limit (prevent memory spikes)
+        this.maxConcurrent = 6;  // Max 6 simultaneous downloads
+        this.downloadQueue = [];
+        this.queueProcessing = false;
+        
         // Download statistics
         this.stats = {
             totalDownloaded: 0,
             totalFailed: 0,
-            currentSpeed: 0
+            currentSpeed: 0,
+            queued: 0
         };
     }
 
@@ -53,18 +59,69 @@ class DownloadManager {
     }
 
     /**
-     * Download file with all protections
+     * Download file with queue system (respects concurrent limit)
      * @param {string} url - Download URL
      * @param {string} filePath - Destination file path
      * @param {object} options - Options { sha1, retries, timeout, progressCallback }
      */
     async downloadFile(url, filePath, options = {}) {
+        // Add to queue and wait for execution
+        return new Promise((resolve, reject) => {
+            this.downloadQueue.push({
+                url,
+                filePath,
+                options,
+                resolve,
+                reject
+            });
+            
+            this.stats.queued = this.downloadQueue.length;
+            this.processQueue();
+        });
+    }
+    
+    /**
+     * Process download queue (respects maxConcurrent limit)
+     */
+    async processQueue() {
+        if (this.queueProcessing) return;
+        this.queueProcessing = true;
+        
+        while (this.downloadQueue.length > 0) {
+            // Wait if max concurrent reached
+            while (this.activeDownloads.size >= this.maxConcurrent) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const task = this.downloadQueue.shift();
+            if (!task) break;
+            
+            this.stats.queued = this.downloadQueue.length;
+            
+            // Start download (non-blocking)
+            this._downloadFileInternal(task)
+                .then(task.resolve)
+                .catch(task.reject);
+        }
+        
+        this.queueProcessing = false;
+    }
+    
+    /**
+     * Internal download method
+     * @param {object} task - Task object from queue
+     */
+    async _downloadFileInternal(task) {
+        const { url, filePath, options } = task;
         const {
             sha1 = null,
             retries = 3,
             timeout = 60000,
             progressCallback = null
         } = options;
+        
+        const downloadId = `${Date.now()}-${Math.random()}`;
+        this.activeDownloads.add(downloadId);
 
         // Acquire file lock
         await this.acquireLock(filePath);
@@ -127,7 +184,9 @@ class DownloadManager {
                                 progress,
                                 downloadedSize,
                                 totalSize,
-                                speed
+                                speed,
+                                active: this.activeDownloads.size,
+                                queued: this.downloadQueue.length
                             });
                         }
                     });
@@ -175,6 +234,8 @@ class DownloadManager {
         } finally {
             // Always release lock
             this.releaseLock(filePath);
+            // Remove from active downloads
+            this.activeDownloads.delete(downloadId);
         }
     }
 
@@ -205,8 +266,18 @@ class DownloadManager {
         return {
             ...this.stats,
             activeDownloads: this.activeDownloads.size,
+            maxConcurrent: this.maxConcurrent,
+            queueSize: this.downloadQueue.length,
             lockedFiles: this.fileLocks.size
         };
+    }
+
+    /**
+     * Set max concurrent downloads
+     */
+    setMaxConcurrent(max) {
+        this.maxConcurrent = Math.max(1, Math.min(max, 20));
+        console.log(`[DOWNLOAD] Max concurrent set to: ${this.maxConcurrent}`);
     }
 
     /**
@@ -216,7 +287,8 @@ class DownloadManager {
         this.stats = {
             totalDownloaded: 0,
             totalFailed: 0,
-            currentSpeed: 0
+            currentSpeed: 0,
+            queued: 0
         };
     }
 }
@@ -225,4 +297,3 @@ class DownloadManager {
 const downloadManager = new DownloadManager();
 
 module.exports = downloadManager;
-

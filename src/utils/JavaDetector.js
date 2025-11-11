@@ -20,6 +20,11 @@ class JavaDetector {
         this.detectedJavas = new Map();
         this.cache = new Map();
         this.cacheTimeout = 30 * 60 * 1000; // 30 minutes
+        
+        // Persistent cache (disk-based)
+        const os = require('os');
+        this.persistentCachePath = path.join(os.homedir(), '.blocksmiths', 'java-cache.json');
+        this.persistentCacheTTL = 24 * 60 * 60 * 1000; // 24 hours
     }
 
     /**
@@ -61,18 +66,71 @@ class JavaDetector {
     }
 
     /**
-     * Detect all Java installations
+     * Load persistent cache from disk
+     */
+    async loadPersistentCache() {
+        try {
+            if (await fs.pathExists(this.persistentCachePath)) {
+                const data = await fs.readJSON(this.persistentCachePath);
+                const now = Date.now();
+                
+                if (now - data.lastScan < this.persistentCacheTTL) {
+                    console.log(`[JAVA] ✅ Loaded ${data.javas.length} Javas from persistent cache`);
+                    return data.javas;
+                } else {
+                    console.log('[JAVA] Persistent cache expired');
+                }
+            }
+        } catch (error) {
+            console.warn('[JAVA] Persistent cache load failed:', error.message);
+        }
+        return null;
+    }
+    
+    /**
+     * Save persistent cache to disk
+     */
+    async savePersistentCache(javas) {
+        try {
+            await fs.ensureDir(path.dirname(this.persistentCachePath));
+            await fs.writeJSON(this.persistentCachePath, {
+                lastScan: Date.now(),
+                javas: javas
+            });
+            console.log(`[JAVA] ✅ Saved ${javas.length} Javas to persistent cache`);
+        } catch (error) {
+            console.error('[JAVA] Persistent cache save failed:', error.message);
+        }
+    }
+    
+    /**
+     * Detect all Java installations (WITH PERSISTENT CACHE)
      */
     async detectJava() {
         console.log('[JAVA] Detecting Java installations...');
-        const javas = [];
         
-        // Check cache first
+        // 1. Check persistent cache first (disk) - FASTEST
+        const persistentJavas = await this.loadPersistentCache();
+        if (persistentJavas && persistentJavas.length > 0) {
+            console.log(`[JAVA] ✅ Using persistent cache (${persistentJavas.length} Javas) - FAST!`);
+            // Also populate memory cache
+            persistentJavas.forEach(java => {
+                this.cache.set(java.path, { ...java, cachedAt: Date.now() });
+                this.detectedJavas.set(java.path, java);
+            });
+            return persistentJavas;
+        }
+        
+        // 2. Check memory cache
         const cachedJavas = this.getCachedJavas();
         if (cachedJavas.length > 0) {
-            console.log(`[JAVA] Found ${cachedJavas.length} cached Java installations`);
+            console.log(`[JAVA] ✅ Using memory cache (${cachedJavas.length} Javas)`);
             return cachedJavas;
         }
+        
+        // 3. Perform full scan (slowest)
+        console.log('[JAVA] No cache found, performing full scan...');
+        const javas = [];
         
         for (const basePath of this.commonPaths) {
             try {
@@ -90,8 +148,28 @@ class JavaDetector {
             }
         }
         
+        // 4. Save to persistent cache
+        if (javas.length > 0) {
+            await this.savePersistentCache(javas);
+        }
+        
         console.log(`[JAVA] Found ${javas.length} Java installations`);
         return javas;
+    }
+    
+    /**
+     * Force refresh (clear all caches and re-scan)
+     */
+    async forceRefresh() {
+        console.log('[JAVA] Force refresh requested');
+        this.cache.clear();
+        this.detectedJavas.clear();
+        
+        if (await fs.pathExists(this.persistentCachePath)) {
+            await fs.remove(this.persistentCachePath);
+        }
+        
+        return await this.detectJava();
     }
 
     /**
