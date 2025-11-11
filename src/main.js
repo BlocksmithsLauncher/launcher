@@ -12,6 +12,7 @@ const updater = require('./utils/updater');
 const analytics = require('./utils/analytics');
 const discordRPC = require('./utils/discord-rpc');
 const MemoryManager = require('./utils/MemoryManager');
+const JavaAutoInstaller = require('./utils/JavaAutoInstaller');
 
 // Ana pencere referansı
 let mainWindow;
@@ -22,6 +23,9 @@ let minecraftLauncher;
 
 // Memory Manager instance
 let memoryManager;
+
+// Java Auto-Installer instance
+let javaAutoInstaller;
 
 // Get icon path (works in both dev and production)
 function getIconPath() {
@@ -253,6 +257,14 @@ app.whenReady().then(async () => {
             console.log('[APP] Memory Manager initialized');
         } catch (error) {
             console.error('[APP] Memory Manager failed (non-critical):', error.message);
+        }
+        
+        // Initialize Java Auto-Installer
+        try {
+            javaAutoInstaller = new JavaAutoInstaller();
+            console.log('[APP] Java Auto-Installer initialized');
+        } catch (error) {
+            console.error('[APP] Java Auto-Installer failed (non-critical):', error.message);
         }
         
         // Initialize Minecraft Launcher
@@ -843,6 +855,115 @@ ipcMain.handle('authenticate-microsoft', async () => {
     } catch (error) {
         console.error('Microsoft authentication failed:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// Java Auto-Installer IPC Handler
+ipcMain.handle('check-and-install-java', async (event, options = {}) => {
+    try {
+        console.log('[JAVA-CHECK] Checking Java installation...');
+        
+        // First, try to detect existing Java
+        const JavaDetector = require('./utils/JavaDetector');
+        const javaDetector = new JavaDetector();
+        
+        try {
+            const javas = await javaDetector.detectJava();
+            const java21 = javas.find(j => j.majorVersion >= 21);
+            if (java21) {
+                console.log('[JAVA-CHECK] ✅ Java 21+ found:', java21.path);
+                return {
+                    success: true,
+                    javaPath: java21.path,
+                    alreadyInstalled: true
+                };
+            }
+        } catch (error) {
+            console.log('[JAVA-CHECK] ⚠️ Java 21+ not found, offering auto-install...');
+        }
+        
+        // Check if auto-install is enabled
+        const autoInstall = await javaAutoInstaller.getAutoInstallPreference();
+        
+        let shouldInstall = false;
+        
+        if (autoInstall) {
+            console.log('[JAVA-CHECK] Auto-install enabled, installing silently...');
+            shouldInstall = true;
+        } else {
+            // Ask user
+            const permission = await javaAutoInstaller.askUserPermission(mainWindow);
+            
+            if (permission.autoInstall) {
+                await javaAutoInstaller.saveAutoInstallPreference(true);
+            }
+            
+            if (permission.install) {
+                shouldInstall = true;
+            } else if (permission.later) {
+                return {
+                    success: false,
+                    later: true,
+                    message: 'Kullanıcı Java kurulumunu erteledi'
+                };
+            } else {
+                return {
+                    success: false,
+                    cancelled: true,
+                    message: 'Kullanıcı Java kurulumunu iptal etti'
+                };
+            }
+        }
+        
+        if (shouldInstall) {
+            // Install Java
+            console.log('[JAVA-CHECK] Installing Java...');
+            
+            const result = await javaAutoInstaller.installJava((progress) => {
+                // Send progress to renderer
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('java-install-progress', progress);
+                }
+            });
+            
+            if (result.success) {
+                // Update JavaDetector cache
+                if (result.javaPath) {
+                    try {
+                        const javas = [{
+                            path: result.javaPath,
+                            version: '21.0.9',
+                            majorVersion: 21,
+                            architecture: 'x64',
+                            valid: true,
+                            detectedAt: Date.now()
+                        }];
+                        await javaDetector.savePersistentCache(javas);
+                    } catch (cacheError) {
+                        console.warn('[JAVA-CHECK] Could not cache Java path:', cacheError.message);
+                    }
+                }
+                
+                return {
+                    success: true,
+                    javaPath: result.javaPath,
+                    newlyInstalled: true,
+                    message: result.message
+                };
+            } else {
+                return {
+                    success: false,
+                    error: result.error
+                };
+            }
+        }
+        
+    } catch (error) {
+        console.error('[JAVA-CHECK] Error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
     }
 });
 
