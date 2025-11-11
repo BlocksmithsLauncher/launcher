@@ -103,6 +103,10 @@
       {
         "from": "build/clear-icon-cache.ps1",
         "to": "clear-icon-cache.ps1"
+      },
+      {
+        "from": "../Java-windows/OpenJDK21U-jdk_x64_windows_hotspot_21.0.9_10.msi",
+        "to": "java/OpenJDK21U-jdk_x64_windows_hotspot_21.0.9_10.msi"
       }
     ],
     "win": {
